@@ -43,12 +43,3 @@
   (to-nanos [this]
     (to-nanos (minutes (* 60 v)))))
 (defn hours [v] (Hour. v))
-
-(extend-protocol Convert
-  java.lang.Long
-  (to-millis [this] (to-millis (millis (.longValue this))))
-  (to-nanos [this] (to-nanos (millis (.longValue this))))
-
-  java.lang.Integer
-  (to-millis [this] (to-millis (millis (.longValue this))))
-  (to-nanos [this] (to-nanos (millis (.longValue this)))))

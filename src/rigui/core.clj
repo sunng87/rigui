@@ -1,4 +1,5 @@
 (ns rigui.core
+  (:require [rigui.units :as unit])
   (:import [java.util.concurrent Executors ScheduledExecutorService TimeUnit]))
 
 (defn- core-count []
@@ -11,8 +12,8 @@
 (defrecord TimingWheels [wheels tick bucket-count consumer])
 (defrecord Task [task delay])
 
-(defn create-timing-wheels [tick ^TimeUnit unit bucket-count consumer]
-  (TimingWheels. (ref []) (.toNanos unit tick) bucket-count consumer))
+(defn create-timing-wheels [tick bucket-count consumer]
+  (TimingWheels. (ref []) (unit/to-nanos tick) bucket-count consumer))
 
 (defn- rotate [buckets]
   (into [] (concat (rest buckets) [(first buckets)])))
@@ -59,8 +60,8 @@
         bucket (int (/ delay (* (Math/pow bucket-count level) tick)))]
     [level bucket]))
 
-(defn schedule! [^TimingWheels tw task delay ^TimeUnit unit]
-  (let [delay (.toNanos unit delay)
+(defn schedule! [^TimingWheels tw task delay]
+  (let [delay (unit/to-nanos delay)
         [level bucket] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))]
     (if (< level 0)
       ((.consumer tw) task)

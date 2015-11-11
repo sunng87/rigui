@@ -4,7 +4,7 @@
 (defn- core-count []
   (.availableProcessors (Runtime/getRuntime)))
 
-(defonce wheel-scheduler
+(defonce ^{:private true} wheel-scheduler
   (Executors/newScheduledThreadPool (core-count)))
 
 (defrecord TimingWheel [future buckets])
@@ -17,19 +17,19 @@
 (defn- rotate [buckets]
   (into [] (concat (rest buckets) [(first buckets)])))
 
-(defn- tick-action [parent wheel-level]
-  (let [wheel (nth @(.wheels parent) wheel-level)
+(defn- tick-action [^TimingWheels parent wheel-level]
+  (let [^TimingWheel wheel (nth @(.wheels parent) wheel-level)
         bucket (first @(.buckets wheel))]
 
     (if (= wheel-level 0)
       (do
-        (doseq [t @bucket]
+        (doseq [^Task t @bucket]
           ((.consumer parent) (.task t)))
         (dosync
          (ref-set bucket #{})
          (alter (.buckets wheel) rotate)))
       (dosync
-       (doseq [t @bucket]
+       (doseq [^Task t @bucket]
          (let [d (.delay t)
                next-wheel-delay (mod d (* (.tick parent)
                                           (Math/pow (.bucket-count parent)
@@ -38,13 +38,13 @@
                                        (* (.tick parent)
                                           (Math/pow (.bucket-count parent)
                                                     (dec wheel-level))))
-               next-wheel (nth @(.wheels parent) (dec wheel-level))]
+               ^TimingWheel next-wheel (nth @(.wheels parent) (dec wheel-level))]
            (alter (nth @(.buckets next-wheel) next-bucket-index) conj t)))
        ;; rotate buckets
        (ref-set bucket #{})
        (alter (.buckets wheel) rotate)))))
 
-(defn- create-wheel [parent level]
+(defn- create-wheel [^TimingWheels parent level]
   (let [buckets (ref (map (fn [_] (ref #{})) (range (.bucket-count parent))))
         schedule-future (agent nil)]
     (send schedule-future (fn [_] (.scheduleWithFixedDelay ^ScheduledExecutorService wheel-scheduler
@@ -54,12 +54,12 @@
                                                           TimeUnit/NANOSECONDS)))
     (TimingWheel. schedule-future buckets)))
 
-(defn level-and-bucket-for-delay [delay tick bucket-count]
+(defn- level-and-bucket-for-delay [delay tick bucket-count]
   (let [level (int (Math/floor (/ (Math/log (/ delay tick)) (Math/log bucket-count))))
         bucket (int (/ delay (* (Math/pow bucket-count level) tick)))]
     [level bucket]))
 
-(defn schedule! [tw task delay ^TimeUnit unit]
+(defn schedule! [^TimingWheels tw task delay ^TimeUnit unit]
   (let [delay (.toNanos unit delay)
         [level bucket] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))]
     (if (< level 0)
@@ -73,5 +73,5 @@
                                                 (into [] (concat wheels (map #(create-wheel tw %)
                                                                              (range current-wheel-count levels-required))))
                                                 wheels))))
-               the-wheel (nth wheels level)]
+               ^TimingWheel the-wheel (nth wheels level)]
            (alter (nth @(.buckets the-wheel) bucket) conj task-entity)))))))

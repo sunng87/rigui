@@ -2,6 +2,8 @@
   (:require [rigui.units :as unit])
   (:import [java.util.concurrent Future Executors ScheduledExecutorService TimeUnit]))
 
+(def ^:dynamic *dry-run* false)
+
 (defn- core-count []
   (.availableProcessors (Runtime/getRuntime)))
 
@@ -12,21 +14,26 @@
 (defrecord TimingWheels [wheels tick bucket-count consumer])
 (defrecord Task [task delay])
 
-(defn- rotate [buckets]
-  (into [] (concat (rest buckets) [(first buckets)])))
+#_(defn- rotate [buckets]
+    (into [] (concat (rest buckets) [(first buckets)])))
 
-(defn- tick-action [^TimingWheels parent wheel-level]
+(defn new-bucket [] (ref []))
+
+(defn- rotate-wheel [buckets]
+  (conj (subvec buckets 1) (new-bucket)))
+
+(defn tick-action [^TimingWheels parent wheel-level]
   (let [^TimingWheel wheel (nth @(.wheels parent) wheel-level)
         bucket (first @(.buckets wheel))]
 
     (if (= wheel-level 0)
       (do
-        (doseq [^Task t @bucket]
-          ((.consumer parent) (.task t)))
         (dosync
-         (ref-set bucket [])
-         (alter (.buckets wheel) rotate)))
+         (alter (.buckets wheel) rotate-wheel))
+        (doseq [^Task t @bucket]
+          ((.consumer parent) (.task t))))
       (dosync
+       (alter (.buckets wheel) rotate-wheel)
        (doseq [^Task t @bucket]
          (let [d (.delay t)
                next-wheel-delay (mod d (* (.tick parent)
@@ -37,22 +44,20 @@
                                           (Math/pow (.bucket-count parent)
                                                     (dec wheel-level))))
                ^TimingWheel next-wheel (nth @(.wheels parent) (dec wheel-level))]
-           (alter (nth @(.buckets next-wheel) next-bucket-index) conj t)))
-       ;; rotate buckets
-       (ref-set bucket [])
-       (alter (.buckets wheel) rotate)))))
+           (alter (nth @(.buckets next-wheel) next-bucket-index) conj t)))))))
 
-(defn- create-wheel [^TimingWheels parent level]
-  (let [buckets (ref (map (fn [_] (ref [])) (range (.bucket-count parent))))
+(defn create-wheel [^TimingWheels parent level]
+  (let [buckets (ref (mapv (fn [_] (new-bucket)) (range (.bucket-count parent))))
         schedule-future (agent nil)]
-    (send schedule-future (fn [_] (.scheduleWithFixedDelay ^ScheduledExecutorService wheel-scheduler
-                                                          (partial tick-action parent level)
-                                                          0
-                                                          (* (.tick parent) (Math/pow (.bucket-count parent) level))
-                                                          TimeUnit/NANOSECONDS)))
+    (when-not *dry-run*
+      (send schedule-future (fn [_] (.scheduleWithFixedDelay ^ScheduledExecutorService wheel-scheduler
+                                                            (partial tick-action parent level)
+                                                            0
+                                                            (* (.tick parent) (Math/pow (.bucket-count parent) level))
+                                                            TimeUnit/NANOSECONDS))))
     (TimingWheel. schedule-future buckets)))
 
-(defn- level-and-bucket-for-delay [delay tick bucket-count]
+(defn level-and-bucket-for-delay [delay tick bucket-count]
   (let [level (int (Math/floor (/ (Math/log (/ delay tick)) (Math/log bucket-count))))
         bucket (int (/ delay (* (Math/pow bucket-count level) tick)))]
     [level bucket]))

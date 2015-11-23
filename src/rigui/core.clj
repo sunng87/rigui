@@ -4,6 +4,7 @@
 
 (def start impl/start)
 (def schedule! impl/schedule!)
+(def cancel! impl/cancel!)
 (def stop impl/stop)
 
 (extend-protocol unit/Convert

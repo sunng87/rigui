@@ -12,12 +12,12 @@
 
 (defrecord TimingWheel [future buckets])
 (defrecord TimingWheels [wheels tick bucket-count consumer])
-(defrecord Task [task delay])
+(defrecord Task [tw task delay created-on cancelled?])
 
 #_(defn- rotate [buckets]
     (into [] (concat (rest buckets) [(first buckets)])))
 
-(defn new-bucket [] (ref []))
+(defn new-bucket [] (ref #{}))
 
 (defn- rotate-wheel [buckets]
   (conj (subvec buckets 1) (new-bucket)))
@@ -31,7 +31,8 @@
         (dosync
          (alter (.buckets wheel) rotate-wheel))
         (doseq [^Task t @bucket]
-          ((.consumer parent) (.task t))))
+          (when-not @(.cancelled? t)
+            ((.consumer parent) (.task t)))))
       (dosync
        (alter (.buckets wheel) rotate-wheel)
        (doseq [^Task t @bucket]
@@ -65,12 +66,15 @@
 (defn start [tick bucket-count consumer]
   (TimingWheels. (ref []) (unit/to-nanos tick) bucket-count consumer))
 
+(defn- now []
+  (System/nanoTime))
+
 (defn schedule! [^TimingWheels tw task delay]
   (let [delay (unit/to-nanos delay)
         [level bucket] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))]
     (if (< level 0)
       ((.consumer tw) task)
-      (let [task-entity (Task. task delay)]
+      (let [task-entity (Task. tw task delay (now) (atom false))]
         (dosync
          (let [wheels (alter (.wheels tw) (fn [wheels]
                                             (let [current-wheel-count (count wheels)
@@ -87,3 +91,13 @@
   (doseq [wheel @(.wheels tw)]
     (send (.future wheel) (fn [fu] (.cancel ^Future fu true))))
   (mapcat (fn [w] (mapcat (fn [b] (map #(.task ^Task %) @b)) @(.buckets w))) @(.wheels tw)))
+
+(defn cancel! [task]
+  (when-not @(.cancelled? task)
+    (reset! (.cencelled? task) true)
+    (let [delay (- (.delay task) (- (now) (.created-on task)))
+          [level bucket-index] (level-and-bucket-for-delay delay (.. task (tw) (tick)) (.. task (tw) (bucket-count)))
+          bucket (nth @(nth @(.wheels (.tw task)) level) bucket-index)]
+      (dosync
+       (alter bucket disj task))))
+  task)

@@ -1,4 +1,4 @@
-# Ri Gui （日晷, Sundial）
+# Ri Gui （日晷, Sundial） [![Build Status](https://travis-ci.org/sunng87/rigui.png?branch=master)](https://travis-ci.org/sunng87/rigui)
 
 Hierarchical Timing Wheels for Clojure.
 

@@ -22,7 +22,7 @@
 (defn- rotate-wheel [buckets]
   (conj (subvec buckets 1) (new-bucket)))
 
-(defn tick-action [^TimingWheels parent wheel-level]
+(defn bookkeeping [^TimingWheels parent wheel-level]
   (let [^TimingWheel wheel (nth @(.wheels parent) wheel-level)
         bucket (first @(.buckets wheel))]
 
@@ -51,7 +51,7 @@
         schedule-future (agent nil)]
     (when-not *dry-run*
       (send schedule-future (fn [_] (.scheduleWithFixedDelay ^ScheduledExecutorService wheel-scheduler
-                                                            (partial tick-action parent level)
+                                                            (partial bookkeeping parent level)
                                                             0
                                                             (* (.tick parent) (Math/pow (.bucket-count parent) level))
                                                             TimeUnit/NANOSECONDS))))

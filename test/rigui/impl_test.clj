@@ -33,7 +33,7 @@
       (is (empty? @(bucket-at tws 2 2)))
 
       ;; rotate
-      (tick-action tws 2)
+      (bookkeeping tws 2)
       (is (= 3 (count @(.wheels tws))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
@@ -42,23 +42,23 @@
       (is (empty? @(bucket-at tws 2 2)))
 
       ;; rotate again
-      (tick-action tws 2)
+      (bookkeeping tws 2)
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is (= 1 (count @(bucket-at tws 1 4))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
 
       ;; let wheel 1 rotate
-      (dotimes [_ 5] (tick-action tws 1)) ;;4->0
+      (dotimes [_ 5] (bookkeeping tws 1)) ;;4->0
       (is (= 1 (count @(bucket-at tws 0 4))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
 
       ;; let wheel 0 rotate
-      (dotimes [_ 4] (tick-action tws 0))
+      (dotimes [_ 4] (bookkeeping tws 0))
       (is (= 1 (count @(bucket-at tws 0 0))))
       (is (not @mark))
 
       ;; last rotation
-      (tick-action tws 0)
+      (bookkeeping tws 0)
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is @mark))))

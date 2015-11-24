@@ -12,7 +12,7 @@
 
 (defrecord TimingWheel [future buckets])
 (defrecord TimingWheels [wheels tick bucket-count consumer])
-(defrecord Task [tw task delay created-on cancelled?])
+(defrecord Task [task delay created-on cancelled?])
 
 #_(defn- rotate [buckets]
     (into [] (concat (rest buckets) [(first buckets)])))
@@ -71,33 +71,33 @@
 
 (defn schedule! [^TimingWheels tw task delay]
   (let [delay (unit/to-nanos delay)
-        [level bucket] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))]
+        [level bucket] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))
+        task-entity (Task. task delay (now) (atom false))]
     (if (< level 0)
       ((.consumer tw) task)
-      (let [task-entity (Task. tw task delay (now) (atom false))]
-        (dosync
-         (let [wheels (alter (.wheels tw) (fn [wheels]
-                                            (let [current-wheel-count (count wheels)
-                                                  levels-required (inc level)]
-                                              (if (> levels-required current-wheel-count)
-                                                (into [] (concat wheels (map #(create-wheel tw %)
-                                                                             (range current-wheel-count levels-required))))
-                                                wheels))))
-               ^TimingWheel the-wheel (nth wheels level)]
-           (alter (nth @(.buckets the-wheel) bucket) conj task-entity)))
-        nil))))
+      (dosync
+       (let [wheels (alter (.wheels tw) (fn [wheels]
+                                          (let [current-wheel-count (count wheels)
+                                                levels-required (inc level)]
+                                            (if (> levels-required current-wheel-count)
+                                              (into [] (concat wheels (map #(create-wheel tw %)
+                                                                           (range current-wheel-count levels-required))))
+                                              wheels))))
+             ^TimingWheel the-wheel (nth wheels level)]
+         (alter (nth @(.buckets the-wheel) bucket) conj task-entity))))
+    task-entity))
 
 (defn stop [^TimingWheels tw]
   (doseq [wheel @(.wheels tw)]
     (send (.future wheel) (fn [fu] (.cancel ^Future fu true))))
   (mapcat (fn [w] (mapcat (fn [b] (map #(.task ^Task %) @b)) @(.buckets w))) @(.wheels tw)))
 
-(defn cancel! [task]
+(defn cancel! [tw task]
   (when-not @(.cancelled? task)
-    (reset! (.cencelled? task) true)
+    (reset! (.cancelled? task) true)
     (let [delay (- (.delay task) (- (now) (.created-on task)))
-          [level bucket-index] (level-and-bucket-for-delay delay (.. task (tw) (tick)) (.. task (tw) (bucket-count)))
-          bucket (nth @(nth @(.wheels (.tw task)) level) bucket-index)]
+          [level bucket-index] (level-and-bucket-for-delay delay (.tick tw) (.bucket-count tw))
+          bucket (nth @(.buckets (nth @(.wheels tw) level)) bucket-index)]
       (dosync
        (alter bucket disj task))))
   task)

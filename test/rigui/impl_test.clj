@@ -62,3 +62,13 @@
       (bookkeeping tws 0)
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is @mark))))
+
+(deftest test-cancel
+  (let [tws (start (seconds 1) 8 (constantly true))
+        task (schedule! tws "value" (seconds 7))]
+    (is (some #(not-empty @%) @(.buckets (nth @(.wheels tws) 0))))
+    ;;
+    (cancel! tws task)
+    (is @(.cancelled? task))
+
+    (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))))

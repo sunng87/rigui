@@ -1,21 +1,18 @@
 (ns rigui.impl
-  (:require [rigui.units :as unit])
-  (:import [java.util.concurrent Future Executors ScheduledExecutorService TimeUnit]))
+  (:require [rigui.units :as unit]
+            [rigui.math :as math]))
 
 (def ^:dynamic *dry-run* false)
 
 (defn- core-count []
-  (.availableProcessors (Runtime/getRuntime)))
+  #?(:clj (.availableProcessors (Runtime/getRuntime))))
 
 (defonce ^{:private true} wheel-scheduler
-  (Executors/newScheduledThreadPool (core-count)))
+  #?(:clj (java.util.concurrent.Executors/newScheduledThreadPool (core-count))))
 
 (defrecord TimingWheel [future buckets])
 (defrecord TimingWheels [wheels tick bucket-count consumer])
 (defrecord Task [task delay created-on cancelled?])
-
-#_(defn- rotate [buckets]
-    (into [] (concat (rest buckets) [(first buckets)])))
 
 (defn new-bucket [] (ref #{}))
 
@@ -38,11 +35,11 @@
        (doseq [^Task t @bucket]
          (let [d (.delay t)
                next-wheel-delay (mod d (* (.tick parent)
-                                          (Math/pow (.bucket-count parent)
+                                          (math/pow (.bucket-count parent)
                                                     wheel-level)))
                next-bucket-index (quot next-wheel-delay
                                        (* (.tick parent)
-                                          (Math/pow (.bucket-count parent)
+                                          (math/pow (.bucket-count parent)
                                                     (dec wheel-level))))
                ^TimingWheel next-wheel (nth @(.wheels parent) (dec wheel-level))]
            (alter (nth @(.buckets next-wheel) next-bucket-index) conj t)))))))
@@ -51,23 +48,24 @@
   (let [buckets (ref (mapv (fn [_] (new-bucket)) (range (.bucket-count parent))))
         schedule-future (agent nil)]
     (when-not *dry-run*
-      (send schedule-future (fn [_] (.scheduleWithFixedDelay ^ScheduledExecutorService wheel-scheduler
-                                                            (partial bookkeeping parent level)
-                                                            0
-                                                            (* (.tick parent) (Math/pow (.bucket-count parent) level))
-                                                            TimeUnit/NANOSECONDS))))
+      (send schedule-future
+            (fn [_] #?(:clj (.scheduleWithFixedDelay ^java.util.concurrent.ScheduledExecutorService wheel-scheduler
+                                                    (partial bookkeeping parent level)
+                                                    0
+                                                    (* (.tick parent) (Math/pow (.bucket-count parent) level))
+                                                    java.util.concurrent.TimeUnit/NANOSECONDS)))))
     (TimingWheel. schedule-future buckets)))
 
 (defn level-and-bucket-for-delay [delay tick bucket-count]
-  (let [level (int (Math/floor (/ (Math/log (/ delay tick)) (Math/log bucket-count))))
-        bucket (int (/ delay (* (Math/pow bucket-count level) tick)))]
+  (let [level (int (math/floor (/ (math/log (/ delay tick)) (math/log bucket-count))))
+        bucket (int (/ delay (* (math/pow bucket-count level) tick)))]
     [level bucket]))
 
 (defn start [tick bucket-count consumer]
   (TimingWheels. (ref []) (unit/to-nanos tick) bucket-count consumer))
 
 (defn- now []
-  (System/nanoTime))
+  #?(:clj (System/nanoTime)))
 
 (defn schedule! [^TimingWheels tw task delay]
   (let [delay (unit/to-nanos delay)
@@ -89,7 +87,7 @@
 
 (defn stop [^TimingWheels tw]
   (doseq [wheel @(.wheels tw)]
-    (send (.future wheel) (fn [fu] (.cancel ^Future fu true))))
+    (send (.future wheel) (fn [fu] #?(:clj (.cancel ^java.util.concurrent.Future fu true)))))
   (mapcat (fn [w] (mapcat (fn [b] (map #(.task ^Task %) @b)) @(.buckets w))) @(.wheels tw)))
 
 (defn cancel! [tw task]

@@ -51,7 +51,7 @@
       (send schedule-future
             (fn [_] #?(:clj (.scheduleWithFixedDelay ^java.util.concurrent.ScheduledExecutorService wheel-scheduler
                                                     (partial bookkeeping parent level)
-                                                    0
+                                                    (* (.tick parent) (Math/pow (.bucket-count parent) level))
                                                     (* (.tick parent) (Math/pow (.bucket-count parent) level))
                                                     java.util.concurrent.TimeUnit/NANOSECONDS)))))
     (TimingWheel. schedule-future buckets)))

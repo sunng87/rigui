@@ -1,7 +1,8 @@
 (ns rigui.impl-test
   (:require [rigui.impl :refer :all]
             [rigui.units :refer :all]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all])
+  (:import [java.util.concurrent Executors TimeUnit]))
 
 (deftest test-level-and-bucket-calc
   (let [bucket-per-wheel 8
@@ -73,3 +74,21 @@
       (is @(.cancelled? task))
 
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0)))))))
+
+(deftest test-scheduler
+  (let [task-count 100000
+        task-time 5000
+        task-counter (atom task-count)
+        executor (Executors/newFixedThreadPool (.availableProcessors (Runtime/getRuntime)))
+        tws (start (millis 1) 8 (fn [_] (.submit executor (cast Runnable (fn [] (swap! task-counter dec))))))]
+    (time
+     (dotimes [_ task-count]
+       (schedule! tws nil (millis (rand-int task-time)))))
+    (Thread/sleep task-time)
+    (is (= (pendings tws) 0))
+    (println "tws is empty" tws)
+    (.shutdown executor)
+    (time (loop []
+            (when-not (.awaitTermination executor 20 TimeUnit/SECONDS)
+              (recur))))
+    (is (= 0 @task-counter))))

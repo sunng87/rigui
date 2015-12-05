@@ -5,17 +5,23 @@
   (:import [java.util.concurrent Executors TimeUnit]))
 
 (deftest test-level-and-bucket-calc
-  (let [bucket-per-wheel 8
-        tick 10]
-    (are [x y] (= (level-and-bucket-for-delay x tick bucket-per-wheel) y)
-      ;; less than a tick, executed at once
-      5 [-1 4]
-      ;; in the first wheel
-      11 [0 1]
-      ;; higher level of wheel
-      230 [1 2]
-      ;; even higher level of wheel
-      3201 [2 5])))
+  (binding [*dry-run* true]
+    (let [bucket-per-wheel 8
+          tick (to-nanos (millis 10))
+          wheel-last-rotate (now)]
+      (are [x y] (= (let [d (to-nanos (millis x))
+                          level (level-for-delay d tick bucket-per-wheel)]
+                      [level (bucket-index-for-delay d level tick bucket-per-wheel wheel-last-rotate)]) y)
+        ;; at once
+        0 [-1 -1]
+        ;; less than a tick, executed at once
+        5 [-1 -1]
+        ;; in the first wheel
+        11 [0 1]
+        ;; higher level of wheel
+        230 [1 2]
+        ;; even higher level of wheel
+        3201 [2 5]))))
 
 (defn bucket-at [tws wheel-index bucket-index]
   (nth @(.buckets (nth @(.wheels tws) wheel-index)) bucket-index))

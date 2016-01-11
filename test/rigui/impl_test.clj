@@ -1,6 +1,8 @@
 (ns rigui.impl-test
   (:require [rigui.impl :refer :all]
+            [rigui.timer.jdk :refer [*dry-run*]]
             [rigui.units :refer :all]
+            [rigui.utils :refer [now]]
             [clojure.test :refer :all])
   (:import [java.util.concurrent Executors TimeUnit]))
 
@@ -40,7 +42,7 @@
       (is (empty? @(bucket-at tws 2 2)))
 
       ;; rotate
-      (bookkeeping tws 2)
+      (book-keeping [tws 2])
       (is (= 3 (count @(.wheels tws))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
@@ -49,24 +51,24 @@
       (is (empty? @(bucket-at tws 2 2)))
 
       ;; rotate again
-      (bookkeeping tws 2)
+      (book-keeping [tws 2])
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is (= 1 (count @(bucket-at tws 1 4))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
 
       ;; let wheel 1 rotate
-      (dotimes [_ 5] (bookkeeping tws 1)) ;;4->0
+      (dotimes [_ 5] (book-keeping [tws 1])) ;;4->0
       (is (= 1 (count @(bucket-at tws 0 4))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
 
       ;; let wheel 0 rotate
-      (dotimes [_ 4] (bookkeeping tws 0))
+      (dotimes [_ 4] (book-keeping [tws 0]))
       (is (= 1 (count @(bucket-at tws 0 0))))
       (is (not @mark))
 
       ;; last rotation
-      (bookkeeping tws 0)
+      (book-keeping [tws 0])
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
       (is @mark))))
 

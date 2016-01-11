@@ -4,17 +4,6 @@
             [rigui.utils :refer [now]]
             [rigui.timer.jdk :as timer]))
 
-(def ^:dynamic *dry-run* false)
-
-(defn- core-count []
-  #?(:clj (.availableProcessors (Runtime/getRuntime))))
-
-(defonce ^{:private true} wheel-scheduler
-  #?(:clj (java.util.concurrent.Executors/newScheduledThreadPool (core-count))))
-
-(defonce ^{:private true} bookkeeping-worker-pool
-  #?(:clj (java.util.concurrent.Executors/newFixedThreadPool (core-count))))
-
 (defrecord TimingWheel [buckets wheel-tick last-rotate])
 ;; TODO: mark for stopped, donot accept new task
 (defrecord TimingWheels [wheels tick bucket-count timer consumer])
@@ -35,7 +24,7 @@
   (if (> 0 level)
     -1
     (let [wheel-tick (* (math/pow buckets-len level) tick)
-          relative-delay (if *dry-run* delay
+          relative-delay (if timer/*dry-run* delay
                              (let [current (now)
                                    wheel-last-rotate (or wheel-last-rotate current)]
                                (- delay (- (+ wheel-last-rotate wheel-tick) (now)))))
@@ -50,31 +39,29 @@
                     (alter (.buckets wheel) rotate-wheel)
                     @b))]
       (timer/schedule! (.timer parent) [parent wheel-level] (* (.wheel-tick wheel) (.bucket-count parent)))
+      (if (= wheel-level 0)
+        ;; TODO: catch InterruptException and return unexecuted tasks
+        (doseq [^Task t bucket]
+          (when-not @(.cancelled? t)
+            ;; enqueue to executor takes about 0.001ms to executor
+            ((.consumer parent) (.task t))))
+        (dosync
+         ;; TODO: STM scope (dosync (doseq ...)) or (doseq (dosync ...))
+         (let [next-level (dec wheel-level)
+               ^TimingWheel next-wheel (nth @(.wheels parent) next-level)]
+           (doseq [^Task t bucket]
+             (let [d (.delay t)
+                   delay-remained (if timer/*dry-run*
+                                    (mod (.delay t)
+                                         (* (.tick parent) (math/pow (.bucket-count parent) wheel-level)))
+                                    (- (+ (.delay t) (.created-on t)) (now)))
+                   next-bucket-index (bucket-index-for-delay delay-remained next-level
+                                                             (.tick parent) (.bucket-count parent)
+                                                             @(.last-rotate next-wheel))
+                   next-bucket-index (max 0 (min (dec (.bucket-count parent)) next-bucket-index))]
+               (alter (nth @(.buckets next-wheel) next-bucket-index) conj t))))))
 
-      (.submit bookkeeping-worker-pool
-               (fn []
-                 (try (if (= wheel-level 0)
-                        ;; TODO: catch InterruptException and return unexecuted tasks
-                        (doseq [^Task t bucket]
-                          (when-not @(.cancelled? t)
-                            ;; enqueue to executor takes about 0.001ms to executor
-                            ((.consumer parent) (.task t))))
-                        (dosync
-                         ;; TODO: STM scope (dosync (doseq ...)) or (doseq (dosync ...))
-                         (let [next-level (dec wheel-level)
-                               ^TimingWheel next-wheel (nth @(.wheels parent) next-level)]
-                           (doseq [^Task t bucket]
-                             (let [d (.delay t)
-                                   delay-remained (if *dry-run*
-                                                    (mod (.delay t)
-                                                         (* (.tick parent) (math/pow (.bucket-count parent) wheel-level)))
-                                                    (- (+ (.delay t) (.created-on t)) (now)))
-                                   next-bucket-index (bucket-index-for-delay delay-remained next-level
-                                                                             (.tick parent) (.bucket-count parent)
-                                                                             @(.last-rotate next-wheel))
-                                   next-bucket-index (max 0 (min (dec (.bucket-count parent)) next-bucket-index))]
-                               (alter (nth @(.buckets next-wheel) next-bucket-index) conj t))))))
-                      (catch Exception e (.printStackTrace e))))))))
+      )))
 
 (defn create-wheel [^TimingWheels parent level]
   (let [buckets (ref (mapv (fn [_] (new-bucket)) (range (.bucket-count parent))))
@@ -114,7 +101,7 @@
 (defn cancel! [tw task]
   (when-not @(.cancelled? task)
     (reset! (.cancelled? task) true)
-    (let [delay-remained (if *dry-run* (.delay task) (- (+ (.delay task) (.created-on task)) (now)))
+    (let [delay-remained (if timer/*dry-run* (.delay task) (- (+ (.delay task) (.created-on task)) (now)))
           level (level-for-delay delay-remained (.tick tw) (.bucket-count tw))
           wheel (nth @(.wheels tw) level)
           bucket-index (bucket-index-for-delay delay-remained level

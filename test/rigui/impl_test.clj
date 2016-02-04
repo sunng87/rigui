@@ -2,9 +2,13 @@
   (:require [rigui.impl :refer :all]
             [rigui.timer.jdk :refer [*dry-run*]]
             [rigui.units :refer :all]
+            [rigui.math :as math]
             [rigui.utils :refer [now]]
             [clojure.test :refer :all])
   (:import [java.util.concurrent Executors TimeUnit]))
+
+(defn wheel-tick [tick bucket-len level]
+  (* (math/pow bucket-len level) tick))
 
 (deftest test-level-and-bucket-calc
   (binding [*dry-run* true]
@@ -13,7 +17,8 @@
           wheel-last-rotate (now)]
       (are [x y] (= (let [d (to-nanos (millis x))
                           level (level-for-delay d tick bucket-per-wheel)]
-                      [level (bucket-index-for-delay d level tick bucket-per-wheel wheel-last-rotate)]) y)
+                      [level (bucket-index-for-delay d level (wheel-tick tick bucket-per-wheel level)
+                                                     bucket-per-wheel wheel-last-rotate)]) y)
         ;; at once
         0 [-1 -1]
         ;; less than a tick, executed at once
@@ -84,17 +89,19 @@
       (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0)))))))
 
 (deftest test-scheduler
-  (let [task-count 100000
-        task-time 5000
+  (let [task-count 10000
+        task-time 2500
         task-counter (atom task-count)
+        task-counter2 (atom 0)
         executor (Executors/newFixedThreadPool (.availableProcessors (Runtime/getRuntime)))
-        tws (start (millis 1) 8 (fn [_] (.submit executor (cast Runnable (fn [] (swap! task-counter dec))))))]
+        tws (start (millis 1) 8 (fn [_] (.submit executor (cast Runnable (fn []
+                                                                          (swap! task-counter2 inc)
+                                                                          (swap! task-counter dec))))))]
     (time
      (dotimes [_ task-count]
        (schedule! tws nil (millis (rand-int task-time)))))
-    (Thread/sleep task-time)
+    (Thread/sleep (* 1.2 task-time))
     (is (= (pendings tws) 0))
-    (println "tws is empty" tws)
     (.shutdown executor)
     (time (loop []
             (when-not (.awaitTermination executor 20 TimeUnit/SECONDS)

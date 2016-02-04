@@ -20,48 +20,47 @@
     -1
     (int (math/floor (/ (math/log (/ delay tick)) (math/log buckets-len))))))
 
-(defn bucket-index-for-delay [delay level tick buckets-len wheel-last-rotate]
+(defn bucket-index-for-delay [delay level wheel-tick buckets-len wheel-last-rotate]
   (if (> 0 level)
     -1
-    (let [wheel-tick (* (math/pow buckets-len level) tick)
-          relative-delay (if timer/*dry-run* delay
+    (let [relative-delay (if timer/*dry-run* delay
                              (let [current (now)
                                    wheel-last-rotate (or wheel-last-rotate current)]
-                               (- delay (- (+ wheel-last-rotate wheel-tick) (now)))))
+                               (- delay (- (+ wheel-last-rotate wheel-tick) current))))
           computed-bucket (int (/ relative-delay wheel-tick))]
-      (max 0 (min (dec buckets-len) computed-bucket)))))
+      (max 1 (min (dec buckets-len) computed-bucket)))))
 
 (defn book-keeping [[^TimingWheels parent wheel-level]]
   (let [wheel (nth @(.wheels parent) wheel-level)]
-    (dosync (ref-set (.last-rotate wheel) (now)))
     (let [bucket (dosync
-                  (let [b (first @(.buckets wheel))]
+                  (let [b (first (ensure (.buckets wheel)))]
                     (alter (.buckets wheel) rotate-wheel)
-                    @b))]
-      (timer/schedule! (.timer parent) [parent wheel-level] (* (.wheel-tick wheel) (.bucket-count parent)))
+                    (ref-set (.last-rotate wheel) (now))
+                    (ensure b)))]
+      (when-not timer/*dry-run*
+        (timer/schedule! (.timer parent) [parent wheel-level] (* (.wheel-tick wheel) (.bucket-count parent))))
       (if (= wheel-level 0)
         ;; TODO: catch InterruptException and return unexecuted tasks
         (doseq [^Task t bucket]
           (when-not @(.cancelled? t)
             ;; enqueue to executor takes about 0.001ms to executor
             ((.consumer parent) (.task t))))
+
         (dosync
          ;; TODO: STM scope (dosync (doseq ...)) or (doseq (dosync ...))
          (let [next-level (dec wheel-level)
                ^TimingWheel next-wheel (nth @(.wheels parent) next-level)]
+
            (doseq [^Task t bucket]
              (let [d (.delay t)
                    delay-remained (if timer/*dry-run*
-                                    (mod (.delay t)
-                                         (* (.tick parent) (math/pow (.bucket-count parent) wheel-level)))
+                                    (mod (.delay t) (.wheel-tick wheel))
                                     (- (+ (.delay t) (.created-on t)) (now)))
                    next-bucket-index (bucket-index-for-delay delay-remained next-level
-                                                             (.tick parent) (.bucket-count parent)
-                                                             @(.last-rotate next-wheel))
-                   next-bucket-index (max 0 (min (dec (.bucket-count parent)) next-bucket-index))]
-               (alter (nth @(.buckets next-wheel) next-bucket-index) conj t))))))
-
-      )))
+                                                             (.wheel-tick next-wheel)
+                                                             (.bucket-count parent)
+                                                             @(.last-rotate next-wheel))]
+               (alter (nth @(.buckets next-wheel) next-bucket-index) conj t)))))))))
 
 (defn create-wheel [^TimingWheels parent level]
   (let [buckets (ref (mapv (fn [_] (new-bucket)) (range (.bucket-count parent))))
@@ -89,8 +88,8 @@
                                                                            (range current-wheel-count levels-required))))
                                               wheels))))
              ^TimingWheel the-wheel (nth wheels level)
-             bucket-index (bucket-index-for-delay delay level (.tick tw) (.bucket-count tw)
-                                                  @(.last-rotate the-wheel))]
+             bucket-index (bucket-index-for-delay delay level (.wheel-tick the-wheel)
+                                                  (.bucket-count tw) @(.last-rotate the-wheel))]
          (alter (nth @(.buckets the-wheel) bucket-index) conj task-entity))))
     task-entity))
 
@@ -105,7 +104,7 @@
           level (level-for-delay delay-remained (.tick tw) (.bucket-count tw))
           wheel (nth @(.wheels tw) level)
           bucket-index (bucket-index-for-delay delay-remained level
-                                               (.tick tw) (.bucket-count tw)
+                                               (.wheel-tick wheel) (.bucket-count tw)
                                                @(.last-rotate wheel))
           bucket (nth @(.buckets wheel) bucket-index)]
       (dosync
@@ -115,4 +114,4 @@
 (defn pendings [^TimingWheels tw]
   (->> @(.wheels tw)
        (mapcat #(deref (.buckets ^TimingWheel %)))
-       (reduce #(+ %1 (count (filter (fn [t] (not @(.cancelled t))) @%2))) 0)))
+       (reduce #(+ %1 (count (filter (fn [t] (not @(.cancelled? t))) @%2))) 0)))

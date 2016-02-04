@@ -100,10 +100,5 @@
     (time
      (dotimes [_ task-count]
        (schedule! tws nil (millis (rand-int task-time)))))
-    (Thread/sleep (* 1.2 task-time))
-    (is (= (pendings tws) 0))
-    (.shutdown executor)
-    (time (loop []
-            (when-not (.awaitTermination executor 20 TimeUnit/SECONDS)
-              (recur))))
-    (is (= 0 @task-counter))))
+    (Thread/sleep (* 1.1 task-time))
+    (is (= (pendings tws) 0))))

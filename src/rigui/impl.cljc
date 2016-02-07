@@ -66,8 +66,9 @@
   (let [buckets (ref (mapv (fn [_] (new-bucket)) (range (.bucket-count parent))))
         wheel-tick (* (.tick parent) (math/pow (.bucket-count parent) level))
         the-wheel (TimingWheel. buckets wheel-tick (ref nil))]
-    (dotimes [i (.bucket-count parent)]
-      (timer/schedule! (.timer parent) [parent level] (* wheel-tick (inc i))))
+    (when-not timer/*dry-run*
+      (dotimes [i (.bucket-count parent)]
+        (timer/schedule! (.timer parent) [parent level] (* wheel-tick (inc i)))))
     the-wheel))
 
 (defn start [tick bucket-count consumer]

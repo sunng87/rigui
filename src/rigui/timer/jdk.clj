@@ -36,7 +36,7 @@
     (JdkDelayQueueTimer. running queue master-thread)))
 
 (defn schedule! [^JdkDelayQueueTimer timer value delay]
-  (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay))))
+  (when-not *dry-run* (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay)))))
 
 (defn stop-timer! [^JdkDelayQueueTimer timer]
   (reset! (.running timer) false))

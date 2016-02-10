@@ -1,17 +1,16 @@
 (ns rigui.impl
-  (:require [rigui.units :as unit]
-            [rigui.math :as math]
+  (:require [rigui.math :as math]
             [rigui.utils :refer [now]]
             [rigui.timer.jdk :as timer]))
 
-(defrecord TimingWheel [buckets bucket-futures wheel-tick])
+(defrecord TimingWheel [buckets running wheel-tick])
 ;; TODO: mark for stopped, donot accept new task
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer])
 (defrecord Task [task target cancelled?])
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]
-    (if (<= delay 0) -1
+    (if (<= delay tick) -1
         (int (quot (math/log (/ delay tick)) (math/log bucket-len))))))
 
 (defn bucket-index-for-target [target wheel-tick tw-start-at]
@@ -19,14 +18,14 @@
 
 (defn create-wheel [^TimingWheels parent level]
   (let [buckets (ref {})
-        bucket-futures (agent true)
+        running (agent true)
         wheel-tick (* (.tick parent) (math/pow (.bucket-count parent) level))
-        wheel (TimingWheel. buckets bucket-futures wheel-tick)]
+        wheel (TimingWheel. buckets running wheel-tick)]
     (alter (.wheels parent) conj wheel)))
 
 (defn create-bucket [^TimingWheels parent ^TimingWheel wheel level trigger-time current-time]
   (alter (.buckets wheel) assoc trigger-time (ref #{}))
-  (send (.bucket-futures wheel) (fn [running]
+  (send (.running wheel) (fn [running]
                                   (when running
                                     (timer/schedule! (.timer parent) [parent level trigger-time]
                                                      (- trigger-time current-time)))
@@ -67,23 +66,22 @@
              ((.consumer parent) (.task t))
              (dosync (schedule-task-on-wheels! parent t current)))))))))
 
-(defn start [tick bucket-count consumer]
-  (TimingWheels. (ref []) (unit/to-nanos tick) bucket-count (now)
+(defn start [tick bucket-count consumer start-at]
+  (TimingWheels. (ref []) tick bucket-count start-at
                  (timer/start-timer book-keeping) consumer))
 
-(defn schedule! [^TimingWheels tw task delay]
-  (let [delay (unit/to-nanos delay)]
-    (if (< delay (.tick tw))
-      ((.consumer tw) task)
-      (let [current (now)
-            task-entity (Task. task (+ delay current) (atom false))]
-        (dosync (schedule-task-on-wheels! tw task-entity current))))))
+(defn schedule-value! [^TimingWheels tw task delay current]
+  (if (<= delay (.tick tw))
+    (do ((.consumer tw) task) nil)
+    (let [task-entity (Task. task (+ current delay) (atom false))]
+      (dosync (schedule-task-on-wheels! tw task-entity current))
+      task-entity)))
 
 (defn stop [^TimingWheels tw]
   (timer/stop-timer! (.timer tw))
   (mapcat (fn [w] (mapcat (fn [b] (map #(.task ^Task %) @b)) (vals @(.buckets w)))) @(.wheels tw)))
 
-(defn cancel! [^TimingWheels tw task]
+(defn cancel! [^TimingWheels tw ^Task task]
   (when-not @(.cancelled? task)
     (reset! (.cancelled? task) true)
     (let [level (level-for-target (.target task) (now) (.tick tw) (.bucket-count tw))]

@@ -88,6 +88,7 @@
       (schedule-value! tw :b 100 0)
 
       (let [remains (stop tw)]
+        (await (.running tw))
         (is (false? @(.running tw)))
         (is (= 2 (count remains)))
         (is (every? #{:a :b} remains)))

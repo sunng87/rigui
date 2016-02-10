@@ -1,5 +1,5 @@
 (ns rigui.timer.jdk
-  (:require [rigui.utils :refer [now]])
+  (:require [rigui.utils :refer [now safely]])
   (:import [java.util.concurrent Delayed DelayQueue ExecutorService Executors TimeUnit]))
 
 (def ^:dynamic *dry-run* false)
@@ -27,7 +27,8 @@
                             (when-not *dry-run*
                               (while @running
                                 (try (let [^JdkDelayedTask task (.take queue)]
-                                       (.submit ^ExecutorService worker-pool ^Runnable #(handler-fn (.value task))))
+                                       (.submit ^ExecutorService worker-pool
+                                                ^Runnable (fn [] (safely (handler-fn (.value task))))))
                                      (catch Exception e (.printStackTrace e))))))
         master-thread (doto (Thread. master-dispatcher "rigui-jdk-timer-thread")
                         (.setDaemon true)
@@ -35,7 +36,7 @@
     (JdkDelayQueueTimer. running queue master-thread)))
 
 (defn schedule! [^JdkDelayQueueTimer timer value delay]
-  (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay))))
+  (when-not *dry-run* (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay)))))
 
 (defn stop-timer! [^JdkDelayQueueTimer timer]
   (reset! (.running timer) false))

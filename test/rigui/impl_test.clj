@@ -4,101 +4,96 @@
             [rigui.units :refer :all]
             [rigui.math :as math]
             [rigui.utils :refer [now]]
-            [clojure.test :refer :all])
-  (:import [java.util.concurrent Executors TimeUnit]))
+            [clojure.test :refer :all]))
 
-(defn wheel-tick [tick bucket-len level]
-  (* (math/pow bucket-len level) tick))
+(deftest test-level-for-target
+  (testing "level -1"
+    (is (= -1 (level-for-target 1 0 2 10)))
+    (is (= -1 (level-for-target -1 0 2 10))))
+  (testing "normal level computing"
+    (is (= 0 (level-for-target 5 0 1 8)))
+    (is (= 1 (level-for-target 10 0 1 8)))
+    (is (= 2 (level-for-target 70 0 1 8)))))
 
-(deftest test-level-and-bucket-calc
+(deftest test-bucket-index-for-target
+  (is (= 5 (bucket-index-for-target 5 1 0)))
+  (is (= 8 (bucket-index-for-target 9 8 0)))
+  (is (= 16 (bucket-index-for-target 18 8 0)))
+  (is (= 17 (bucket-index-for-target 19 8 1))))
+
+(deftest test-create-wheel
+  (let [t 1
+        bc 8
+        tw (start t bc identity (now))]
+    (dosync
+     (dorun (map #(create-wheel tw %) (range 0 10))))
+    (is (= 10 (count @(.wheels tw))))
+    (doseq [i (range 0 10)]
+      (is (= (long (* t (math/pow bc i))) (.wheel-tick (nth @(.wheels tw) i)))))))
+
+(deftest test-create-bucket
+  (let [t 1
+        bc 8
+        tw (start t bc identity 0)]
+    (dosync
+     (dorun (map #(create-wheel tw %) (range 0 10)))
+     (binding [*dry-run* true]
+       (create-bucket tw (nth (ensure (.wheels tw)) 2) 2 64 0)
+       (create-bucket tw (nth (ensure (.wheels tw)) 2) 2 192 0)))
+    (is (= 2 (count @(.buckets (nth @(.wheels tw) 2)))))
+    (is (some? @(get @(.buckets (nth @(.wheels tw) 2)) 64)))))
+
+(deftest test-schedule-value
   (binding [*dry-run* true]
-    (let [bucket-per-wheel 8
-          tick (to-nanos (millis 10))
-          wheel-last-rotate (now)]
-      (are [x y] (= (let [d (to-nanos (millis x))
-                          level (level-for-delay d tick bucket-per-wheel)]
-                      [level (bucket-index-for-delay d level (wheel-tick tick bucket-per-wheel level)
-                                                     bucket-per-wheel wheel-last-rotate)]) y)
-        ;; at once
-        0 [-1 -1]
-        ;; less than a tick, executed at once
-        5 [-1 -1]
-        ;; in the first wheel
-        11 [0 1]
-        ;; higher level of wheel
-        230 [1 2]
-        ;; even higher level of wheel
-        3201 [2 5]))))
+    (let [tw (start 1 8 identity 0)]
+      (schedule-value! tw :a 10 0)
+      (schedule-value! tw :b 100 0)
 
-(defn bucket-at [tws wheel-index bucket-index]
-  (nth @(.buckets (nth @(.wheels tws) wheel-index)) bucket-index))
+      (is (= :a (-> @(.wheels tw)
+                    (nth 1)
+                    (.buckets)
+                    (deref)
+                    (get 8) ;; computed trigger time
+                    (deref)
+                    (first)
+                    (.value))))
+      (is (= :b (-> @(.wheels tw)
+                    (nth 2)
+                    (.buckets)
+                    (deref)
+                    (get 64)
+                    (deref)
+                    (first)
+                    (.value)))))))
 
-(deftest test-wheel
-  (let [mark (atom false)
-        tws (start (millis 10) 8 (fn [_] (reset! mark true)))]
-    (binding [*dry-run* true]
-      ;; init
-      (schedule! tws 10 (millis 1000))
-      (is (= 3 (count @(.wheels tws))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
-      (is (empty? @(bucket-at tws 2 0)))
-      (is (= 1 (count @(bucket-at tws 2 1))))
-      (is (empty? @(bucket-at tws 2 2)))
 
-      ;; rotate
-      (book-keeping [tws 2])
-      (is (= 3 (count @(.wheels tws))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
-      (is (= 1 (count @(bucket-at tws 2 0))))
-      (is (empty? @(bucket-at tws 2 1)))
-      (is (empty? @(bucket-at tws 2 2)))
-
-      ;; rotate again
-      (book-keeping [tws 2])
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
-      (is (= 1 (count @(bucket-at tws 1 4))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
-
-      ;; let wheel 1 rotate
-      (dotimes [_ 5] (book-keeping [tws 1])) ;;4->0
-      (is (= 1 (count @(bucket-at tws 0 4))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 1))))
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 2))))
-
-      ;; let wheel 0 rotate
-      (dotimes [_ 4] (book-keeping [tws 0]))
-      (is (= 1 (count @(bucket-at tws 0 0))))
-      (is (not @mark))
-
-      ;; last rotation
-      (book-keeping [tws 0])
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0))))
-      (is @mark))))
-
-(deftest test-cancel
+(deftest test-cancel-task
   (binding [*dry-run* true]
-    (let [tws (start (seconds 10) 8 (constantly true))
-          task (schedule! tws "value" (seconds 75))]
-      (is (some #(not-empty @%) @(.buckets (nth @(.wheels tws) 0))))
-      ;;
-      (cancel! tws task)
+    (let [tw (start 1 8 identity 0)
+          task (schedule-value! tw :a 10 0)]
+      (cancel! tw task 0)
       (is @(.cancelled? task))
 
-      (is (every? #(empty? @%) @(.buckets (nth @(.wheels tws) 0)))))))
+      (is (empty? (-> @(.wheels tw)
+                      (nth 1)
+                      (.buckets)
+                      (deref)
+                      (get 8)
+                      (deref)))))))
 
-(deftest test-scheduler
-  (let [task-count 10000
-        task-time 2500
-        task-counter (atom task-count)
-        task-counter2 (atom 0)
-        executor (Executors/newFixedThreadPool (.availableProcessors (Runtime/getRuntime)))
-        tws (start (millis 1) 8 (fn [_] (.submit executor (cast Runnable (fn []
-                                                                          (swap! task-counter2 inc)
-                                                                          (swap! task-counter dec))))))]
-    (time
-     (dotimes [_ task-count]
-       (schedule! tws nil (millis (rand-int task-time)))))
-    (Thread/sleep (* 1.1 task-time))
-    (is (= (pendings tws) 0))))
+(deftest test-stop-tw
+  (binding [*dry-run* true]
+    (let [tw (start 1 8 identity 0)]
+      (schedule-value! tw :a 10 0)
+      (schedule-value! tw :b 100 0)
+
+      (let [remains (stop tw)]
+        (await (.running tw))
+        (is (false? @(.running tw)))
+        (is (= 2 (count remains)))
+        (is (every? #{:a :b} remains)))
+
+      (try
+        (schedule-value! tw :c 10 0)
+        (is false)
+        (catch IllegalStateException e)))))

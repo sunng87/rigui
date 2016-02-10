@@ -33,9 +33,8 @@
                                   running)))
 
 ;; this function should be called with a dosync block
-(defn schedule-task-on-wheels! [^TimingWheels parent ^Task task]
-  (let [current (now)
-        level (level-for-target (.target task) current (.tick parent) (.bucket-count parent))
+(defn schedule-task-on-wheels! [^TimingWheels parent ^Task task current]
+  (let [level (level-for-target (.target task) current (.tick parent) (.bucket-count parent))
         current-levels (count (ensure (.wheels parent)))
         _ (when (> level (dec current-levels))
             (dorun (map #(create-wheel parent %) (range current-levels (inc level)))))
@@ -62,7 +61,11 @@
             ;; enqueue to executor takes about 0.001ms to executor
             ((.consumer parent) (.task t))))
 
-        (doseq [^Task t bucket] (dosync (schedule-task-on-wheels! parent t)))))))
+        (doseq [^Task t bucket]
+          (let [current (now)]
+            (if (<= (- (.target t) current) (.tick parent))
+             ((.consumer parent) (.task t))
+             (dosync (schedule-task-on-wheels! parent t current)))))))))
 
 (defn start [tick bucket-count consumer]
   (TimingWheels. (ref []) (unit/to-nanos tick) bucket-count (now)
@@ -72,8 +75,9 @@
   (let [delay (unit/to-nanos delay)]
     (if (< delay (.tick tw))
       ((.consumer tw) task)
-      (let [task-entity (Task. task (+ delay (now)) (atom false))]
-        (dosync (schedule-task-on-wheels! tw task-entity))))))
+      (let [current (now)
+            task-entity (Task. task (+ delay current) (atom false))]
+        (dosync (schedule-task-on-wheels! tw task-entity current))))))
 
 (defn stop [^TimingWheels tw]
   (timer/stop-timer! (.timer tw))

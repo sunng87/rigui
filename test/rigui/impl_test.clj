@@ -1,6 +1,6 @@
 (ns rigui.impl-test
   (:require [rigui.impl :refer :all]
-            [rigui.timer.jdk :refer [*dry-run*]]
+            [rigui.timer.platform :refer [*dry-run*]]
             [rigui.units :refer :all]
             [rigui.math :as math]
             [rigui.utils :refer [now]]

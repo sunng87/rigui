@@ -1,7 +1,7 @@
 (ns rigui.impl
   (:require [rigui.math :as math]
             [rigui.utils :refer [now]]
-            [rigui.timer.jdk :as timer]))
+            [rigui.timer.platform :as timer]))
 
 (defrecord TimingWheel [buckets wheel-tick])
 ;; TODO: mark for stopped, donot accept new task

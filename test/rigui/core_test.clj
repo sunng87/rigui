@@ -12,7 +12,7 @@
     (time
      (dotimes [_ task-count]
        (schedule! tws nil (rand-int task-time))))
-    (Thread/sleep (* 1.0 task-time))
+    (Thread/sleep (* 1.1 task-time))
     (is (= (count (stop tws)) 0))))
 
 (deftest test-cancel

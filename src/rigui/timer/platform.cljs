@@ -11,5 +11,5 @@
   (when (and (not *dry-run*) @(.running timer)))
   (js/setTimeout #((.handler timer) value) delay))
 
-(defn stop! [timer]
+(defn stop-timer! [timer]
   (reset! (.running timer) false))

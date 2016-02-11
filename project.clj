@@ -6,12 +6,11 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.7.228" :scope "provided"]]
   :plugins [[lein-cljsbuild "1.1.2"]]
-  :cljsbuild {:builds [{
-                        :source-paths ["src"]
+  :cljsbuild {:builds [{:source-paths ["src"]
                         :compiler {:optimizations :whitespace
                                    :output-to "target/rigui.js"
-                                   :output-dir "target"
+                                   :output-dir "target/js/work"
                                    :pretty-print true}}]}
-  )
+  :hooks [leiningen.cljsbuild])
 
-;;   :hooks [leiningen.cljsbuild]
+;;

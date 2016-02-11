@@ -2,7 +2,7 @@
   (:require [rigui.units :as unit]
             [rigui.impl :as impl]
             [rigui.utils :as u])
-  (:import [rigui.impl TimingWheels]
+  (:import [rigui.impl TimingWheels Task]
            [java.util.concurrent ExecutorService]))
 
 (extend-protocol unit/Convert
@@ -26,8 +26,8 @@
   (let [delay #?(:clj (unit/to-nanos delay))]
     (impl/schedule-value! tw task delay (u/now))))
 
-(defn cancel! [^TimingWheels tw task]
-  (impl/cancel! tw task (u/now)))
+(defn cancel! [^Task task]
+  (impl/cancel! task (u/now)))
 
 (defn stop [^TimingWheels tw]
   (impl/stop tw))

@@ -71,7 +71,7 @@
   (binding [*dry-run* true]
     (let [tw (start 1 8 identity 0)
           task (schedule-value! tw :a 10 0)]
-      (cancel! tw task 0)
+      (cancel! task 0)
       (is @(.cancelled? task))
 
       (is (empty? (-> @(.wheels tw)

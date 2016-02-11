@@ -8,10 +8,16 @@
         task-time 2500
         task-counter (atom task-count)
         executor (Executors/newFixedThreadPool (.availableProcessors (Runtime/getRuntime)))
-        tws (start 1 8 (fn [_] (.submit executor (cast Runnable
-                                                      (fn [] (swap! task-counter dec))))))]
+        tws (start 1 8 (fn [_] (swap! task-counter dec)) executor)]
     (time
      (dotimes [_ task-count]
        (schedule! tws nil (rand-int task-time))))
     (Thread/sleep (* 1.0 task-time))
     (is (= (count (stop tws)) 0))))
+
+(deftest test-cancel
+  (let [tw (start 1 8 (fn [_] (is false)))
+        task (schedule! tw nil 2000)]
+    (cancel! tw task)
+    (is (= 0 (count (stop tw))))
+    (is true)))

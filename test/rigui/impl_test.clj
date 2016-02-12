@@ -4,7 +4,8 @@
             [rigui.units :refer :all]
             [rigui.math :as math]
             [rigui.utils :refer [now]]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all])
+  (:import [clojure.lang ExceptionInfo]))
 
 (deftest test-level-for-target
   (testing "level -1"
@@ -96,4 +97,5 @@
       (try
         (schedule-value! tw :c 10 0)
         (is false)
-        (catch IllegalStateException e)))))
+        (catch ExceptionInfo e
+          (is (= :rigui.impl/timer-stopped (:reason (ex-data e)))))))))

@@ -98,8 +98,7 @@
         #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
            :cljs (schedule-task-on-wheels! tw task-entity current))
         task-entity))
-    (throw #?(:clj (IllegalStateException. "TimingWheels already stopped.")
-              :cljs (js/Error. "TimingWheels already stopped.")))))
+    (throw (ex-info "TimingWheels already stopped." {:reason ::timer-stopped}))))
 
 (defn stop [^TimingWheels tw]
   #?(:clj (send (.running tw) (constantly false))

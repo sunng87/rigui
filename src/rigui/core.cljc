@@ -27,8 +27,8 @@
   (let [delay #?(:clj (unit/to-nanos delay))]
     (impl/schedule-value! tw task delay (u/now))))
 
-(defn cancel! [^Task task]
-  (impl/cancel! task (u/now)))
+(defn cancel! [^TimingWheels tw ^Task task]
+  (impl/cancel! tw task (u/now)))
 
 (defn stop [^TimingWheels tw]
   (impl/stop tw))

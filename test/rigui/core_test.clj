@@ -18,6 +18,6 @@
 (deftest test-cancel
   (let [tw (start 1 8 (fn [_] (is false)))
         task (schedule! tw nil 2000)]
-    (cancel! task)
+    (cancel! tw task)
     (is (= 0 (count (stop tw))))
     (is true)))

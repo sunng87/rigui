@@ -6,7 +6,7 @@
 (defrecord TimingWheel [buckets wheel-tick])
 ;; TODO: mark for stopped, donot accept new task
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer running])
-(defrecord Task [timing-wheels value target cancelled?])
+(defrecord Task [value target cancelled?])
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]
@@ -76,7 +76,7 @@
   (if @(.running tw)
     (if (<= delay (.tick tw))
       (do ((.consumer tw) task) nil)
-      (let [task-entity (Task. tw task (+ current delay) (atom false))]
+      (let [task-entity (Task. task (+ current delay) (atom false))]
         (dosync (schedule-task-on-wheels! tw task-entity current))
         task-entity))
     (throw (IllegalStateException. "TimingWheels already stopped."))))
@@ -88,18 +88,17 @@
                           (vals @(.buckets ^TimingWheel w))))
           @(.wheels tw)))
 
-(defn cancel! [^Task task current]
-  (let [tw ^TimingWheels (.timing-wheels task)]
-    (when-not @(.cancelled? task)
-      (reset! (.cancelled? task) true)
-      (let [level (level-for-target (.target task) current (.tick tw) (.bucket-count tw))]
-        (when (>= level 0)
-          (when-let [wheel ^TimingWheel (nth @(.wheels tw) level)]
-            (dosync
-             (let [bucket-index (bucket-index-for-target (.target task) (.wheel-tick wheel)
-                                                         (.start-at tw))]
-               (when-let [bucket (get (ensure (.buckets wheel)) bucket-index)]
-                 (alter bucket disj task)))))))))
+(defn cancel! [^TimingWheels tw ^Task task current]
+  (when-not @(.cancelled? task)
+    (reset! (.cancelled? task) true)
+    (let [level (level-for-target (.target task) current (.tick tw) (.bucket-count tw))]
+      (when (>= level 0)
+        (when-let [wheel ^TimingWheel (nth @(.wheels tw) level)]
+          (dosync
+           (let [bucket-index (bucket-index-for-target (.target task) (.wheel-tick wheel)
+                                                       (.start-at tw))]
+             (when-let [bucket (get (ensure (.buckets wheel)) bucket-index)]
+               (alter bucket disj task))))))))
   task)
 
 (defn pendings [^TimingWheels tw]

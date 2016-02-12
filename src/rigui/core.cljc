@@ -19,7 +19,8 @@
    (impl/start #?(:clj (unit/to-nanos tick)) bucket-count consumer-fn (u/now)))
   ([tick bucket-count consumer-fn ^ExecutorService executor]
    (if executor
-     (start tick bucket-count (fn [v] (.submit executor (cast Runnable #(consumer-fn v)))))
+     (start tick bucket-count (fn [v] (.submit executor
+                                               ^Runnable (cast Runnable #(consumer-fn v)))))
      (start tick bucket-count consumer-fn))))
 
 (defn schedule! [^TimingWheels tw task delay]

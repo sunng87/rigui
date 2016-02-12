@@ -37,7 +37,7 @@
         current-levels (count (ensure (.wheels parent)))
         _ (when (> level (dec current-levels))
             (dorun (map #(create-wheel parent %) (range current-levels (inc level)))))
-        wheel (nth (ensure (.wheels parent)) level)
+        wheel ^TimingWheel (nth (ensure (.wheels parent)) level)
 
         ;; aka bucket trigger-time
         bucket-index (bucket-index-for-target (.target task) (.wheel-tick wheel)
@@ -49,7 +49,7 @@
     (alter bucket conj task)))
 
 (defn book-keeping [[^TimingWheels parent wheel-level trigger-time]]
-  (let [wheel (nth @(.wheels parent) wheel-level)]
+  (let [wheel ^TimingWheel (nth @(.wheels parent) wheel-level)]
     (let [bucket (dosync
                   (let [b (get (ensure (.buckets wheel)) trigger-time)]
                     (alter (.buckets wheel) dissoc trigger-time)
@@ -84,15 +84,17 @@
 (defn stop [^TimingWheels tw]
   (send (.running tw) (constantly false))
   (timer/stop-timer! (.timer tw))
-  (mapcat (fn [w] (mapcat (fn [b] (map #(.value ^Task %) @b)) (vals @(.buckets w)))) @(.wheels tw)))
+  (mapcat (fn [w] (mapcat (fn [b] (map #(.value ^Task %) @b))
+                          (vals @(.buckets ^TimingWheel w))))
+          @(.wheels tw)))
 
 (defn cancel! [^Task task current]
-  (let [tw (.timing-wheels task)]
+  (let [tw ^TimingWheels (.timing-wheels task)]
     (when-not @(.cancelled? task)
       (reset! (.cancelled? task) true)
       (let [level (level-for-target (.target task) current (.tick tw) (.bucket-count tw))]
         (when (>= level 0)
-          (when-let [wheel (nth @(.wheels tw) level)]
+          (when-let [wheel ^TimingWheel (nth @(.wheels tw) level)]
             (dosync
              (let [bucket-index (bucket-index-for-target (.target task) (.wheel-tick wheel)
                                                          (.start-at tw))]
@@ -103,4 +105,4 @@
 (defn pendings [^TimingWheels tw]
   (->> @(.wheels tw)
        (mapcat #(vals (deref (.buckets ^TimingWheel %))))
-       (reduce #(+ %1 (count (filter (fn [t] (not @(.cancelled? t))) @%2))) 0)))
+       (reduce #(+ %1 (count (filter (fn [^Task t] (not @(.cancelled? t))) @%2))) 0)))

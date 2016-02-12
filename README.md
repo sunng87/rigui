@@ -31,10 +31,19 @@ Schedule some task/value:
 (def task (schedule! timer :a 1000))
 ```
 
+The handler function will be called with task value as arguments when
+the task expires. The run a custom task, you can start the timer as:
+
+```clojure
+(def timer (start 1 8 (fn [f] (f))))
+
+(schedule! timer #(println :a) 1000)
+```
+
 Cancel a task:
 
 ```clojure
-(cancel! task)
+(cancel! timer task)
 ```
 
 Stop a timer:

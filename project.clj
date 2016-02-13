@@ -8,9 +8,10 @@
   :plugins [[lein-cljsbuild "1.1.2"]]
   :cljsbuild {:builds [{:source-paths ["src"]
                         :compiler {:optimizations :whitespace
-                                   :output-to "target/rigui.js"
-                                   :output-dir "target/js/work"
-                                   :pretty-print true}}]}
+                                   :output-to "target/js/rigui.js"
+                                   :output-dir "target/js/"
+                                   :pretty-print true
+                                   :source-map "target/js/rigui.js.map"}}]}
   :hooks [leiningen.cljsbuild])
 
 ;;

@@ -7,17 +7,16 @@
 
 #?(:clj (extend-protocol unit/Convert
           java.lang.Long
-          (unit/to-millis [this] (unit/to-millis (unit/millis (long this))))
-          (unit/to-nanos [this] (unit/to-nanos (unit/millis (long this))))
+          (to-millis [this] (unit/to-millis (unit/millis (long this))))
+          (to-nanos [this] (unit/to-nanos (unit/millis (long this))))
 
           java.lang.Integer
-          (unit/to-millis [this] (unit/to-millis (unit/millis (long this))))
-          (unit/to-nanos [this] (unit/to-nanos (unit/millis (long this)))))
-   ;; FIXME:
+          (to-millis [this] (unit/to-millis (unit/millis (long this))))
+          (to-nanos [this] (unit/to-nanos (unit/millis (long this)))))
    :cljs (extend-protocol unit/Convert
            number
-           (unit/to-millis [this] (unit/to-millis (unit/millis this)))
-           (unit/to-nanos [this] (unit/to-nanos (unit/millis this)))))
+           (to-millis [this] (unit/to-millis (unit/millis this)))
+           (to-nanos [this] (unit/to-nanos (unit/millis this)))))
 
 (defn- convert-unit [u]
   #?(:clj (unit/to-nanos u)

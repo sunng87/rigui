@@ -6,7 +6,7 @@
 (defrecord TimingWheel [buckets wheel-tick])
 ;; TODO: mark for stopped, donot accept new task
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer running])
-(defrecord Task [value target cancelled?])
+(defrecord Task [value target cancelled? result-promise])
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]
@@ -75,7 +75,7 @@
         (doseq [^Task t bucket]
           (when-not @(.cancelled? t)
             ;; enqueue to executor takes about 0.001ms to executor
-            ((.consumer parent) (.value t))))
+            (deliver (.result-promise t) ((.consumer parent) (.value t)))))
 
         (doseq [^Task t bucket]
           (let [current (now)]
@@ -92,12 +92,15 @@
 
 (defn schedule-value! [^TimingWheels tw task delay current]
   (if @(.running tw)
-    (if (<= delay (.tick tw))
-      (do ((.consumer tw) task) nil)
-      (let [task-entity (Task. task (+ current delay) (atom false))]
-        #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
-           :cljs (schedule-task-on-wheels! tw task-entity current))
-        task-entity))
+    (let [task-entity (Task. task (+ current delay) (atom false) (promise))]
+      (if (<= delay (.tick tw))
+        (do (deliver (.result-promise task-entity)
+                     ((.consumer tw) (.value task-entity)))
+            task-entity)
+        (do
+          #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
+             :cljs (schedule-task-on-wheels! tw task-entity current))
+          task-entity)))
     (throw (ex-info "TimingWheels already stopped." {:reason ::timer-stopped}))))
 
 (defn stop [^TimingWheels tw]

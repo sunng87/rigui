@@ -1,12 +1,23 @@
 (ns rigui.impl
   (:require [rigui.math :as math]
             [rigui.utils :refer [now]]
-            [rigui.timer.platform :as timer]))
+            [rigui.timer.platform :as timer])
+  #?(:clj (:import [clojure.lang IDeref IPending IBlockingDeref])))
 
 (defrecord TimingWheel [buckets wheel-tick])
-;; TODO: mark for stopped, donot accept new task
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer running])
-(defrecord Task [value target cancelled? result-promise])
+
+(defrecord Task [value target cancelled? #?(:clj result-promise)]
+  #?@(:clj
+      [IDeref
+       (deref [this] (deref result-promise))
+
+       IBlockingDeref
+       (deref [this timeout timeout-val]
+              (deref result-promise timeout timeout-val))
+
+       IPending
+       (isRealized [this] (realized? result-promise))]))
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]
@@ -75,7 +86,8 @@
         (doseq [^Task t bucket]
           (when-not @(.cancelled? t)
             ;; enqueue to executor takes about 0.001ms to executor
-            (deliver (.result-promise t) ((.consumer parent) (.value t)))))
+            #?(:clj (deliver (.result-promise t) ((.consumer parent) (.value t)))
+               :cljs ((.consumer parent) (.value t)))))
 
         (doseq [^Task t bucket]
           (let [current (now)]
@@ -92,15 +104,14 @@
 
 (defn schedule-value! [^TimingWheels tw task delay current]
   (if @(.running tw)
-    (let [task-entity (Task. task (+ current delay) (atom false) (promise))]
+    (let [task-entity (Task. task (+ current delay) (atom false) #?(:clj (promise)))]
       (if (<= delay (.tick tw))
-        (do (deliver (.result-promise task-entity)
-                     ((.consumer tw) (.value task-entity)))
-            task-entity)
-        (do
-          #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
-             :cljs (schedule-task-on-wheels! tw task-entity current))
-          task-entity)))
+        #?(:clj (deliver (.result-promise task-entity)
+                         ((.consumer tw) (.value task-entity)))
+           :cljs ((.consumer tw) (.value task-entity)))
+        #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
+           :cljs (schedule-task-on-wheels! tw task-entity current)))
+      task-entity)
     (throw (ex-info "TimingWheels already stopped." {:reason ::timer-stopped}))))
 
 (defn stop [^TimingWheels tw]

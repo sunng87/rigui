@@ -22,3 +22,10 @@
     (cancel! tw task)
     (is (= 0 (count (stop tw))))
     (is true)))
+
+(deftest test-task-api
+  (let [tw (start 1 8 (constantly true))
+        te (schedule! tw nil 500)]
+    (is (false? (realized? te)))
+    (is (= :a (deref te 100 :a)))
+    (is @te)))

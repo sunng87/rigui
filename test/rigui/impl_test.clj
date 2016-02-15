@@ -65,7 +65,14 @@
                     (get 64)
                     (deref)
                     (first)
-                    (.value)))))))
+                    (.value))))
+      (println (-> @(.wheels tw)
+                    (nth 2)
+                    (.buckets)
+                    (deref)
+                    (get 64)
+                    (deref)
+                    (first))))))
 
 
 (deftest test-cancel-task

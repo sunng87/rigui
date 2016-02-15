@@ -2,7 +2,8 @@
   (:require [rigui.math :as math]
             [rigui.utils :refer [now]]
             [rigui.timer.platform :as timer])
-  #?(:clj (:import [clojure.lang IDeref IPending IBlockingDeref])))
+  #?(:clj (:import [clojure.lang IDeref IPending IBlockingDeref]
+                   [java.io Writer])))
 
 (defrecord TimingWheel [buckets wheel-tick])
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer running])
@@ -18,6 +19,18 @@
 
        IPending
        (isRealized [this] (realized? result-promise))]))
+
+#?(:clj
+   (defmethod print-method Task [^Task t ^Writer w]
+     (.write w
+             (str "#rigui.task[{"
+                  ":value " (pr-str (.value t)) ", "
+                  ":target " (.target t) ", "
+                  (cond
+                    (realized? t) (str ":result " (pr-str @t))
+                    @(.cancelled? t) ":status cancelled"
+                    :else ":status pending")
+                  "]}"))))
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]

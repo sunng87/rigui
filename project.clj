@@ -7,11 +7,14 @@
                  [org.clojure/clojurescript "1.7.228" :scope "provided"]]
   :plugins [[lein-cljsbuild "1.1.2"]]
   :cljsbuild {:builds [{:source-paths ["src"]
-                        :compiler {:optimizations :whitespace
+                        :compiler {:optimizations :advanced
                                    :output-to "target/js/rigui.js"
                                    :output-dir "target/js/"
                                    :pretty-print true
-                                   :source-map "target/js/rigui.js.map"}}]}
-  :hooks [leiningen.cljsbuild])
+                                   :source-map "target/js/rigui.js.map"
+                                   :target :nodejs
+                                   :language-in :ecmascript5
+                                   :language-out :ecmascript5}}]}
+  :aliases {"build-cljs-test" ["trampoline" "run" "-m" "clojure.main" "build.clj"]})
 
 ;;

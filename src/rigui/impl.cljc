@@ -68,8 +68,8 @@
         _ (when (> level (dec current-levels))
             (dorun (map #(create-wheel parent %) (range current-levels (inc level)))))
         wheel ^TimingWheel (nth #?(:clj (ensure (.wheels parent))
-                      :cljs @(.wheels parent))
-                   level)
+                                   :cljs @(.wheels parent))
+                                level)
 
         ;; aka bucket trigger-time
         bucket-index (bucket-index-for-target (.target task) (.wheel-tick wheel)

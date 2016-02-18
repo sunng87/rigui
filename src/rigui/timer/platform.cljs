@@ -8,8 +8,8 @@
   (JsTimer. (atom true) handler-fn))
 
 (defn schedule! [timer value delay]
-  (when (and (not *dry-run*) @(.running timer)))
-  (js/setTimeout #((.handler timer) value) delay))
+  (when (and (not *dry-run*) @(.-running timer))
+    (js/setTimeout #((.-handler timer) value) delay)))
 
 (defn stop-timer! [timer]
-  (reset! (.running timer) false))
+  (reset! (.-running timer) false))

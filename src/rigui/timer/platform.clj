@@ -17,7 +17,7 @@
     (.convert unit (- expiry (now)) TimeUnit/NANOSECONDS))
   (compareTo [_ o]
     (if (instance? JdkDelayedTask o)
-      (compare expiry (.expiry ^JdkDelayedTask o))
+      (compare expiry (.-expiry ^JdkDelayedTask o))
       -1)))
 
 (defn start-timer [handler-fn]
@@ -28,7 +28,7 @@
                               (while @running
                                 (try (let [^JdkDelayedTask task (.take queue)]
                                        (.submit ^ExecutorService worker-pool
-                                                ^Runnable (fn [] (handler-fn (.value task)))))
+                                                ^Runnable (fn [] (handler-fn (.-value task)))))
                                      (catch Exception e (.printStackTrace e))))))
         master-thread (doto (Thread. master-dispatcher "rigui-jdk-timer-thread")
                         (.setDaemon true)
@@ -39,4 +39,4 @@
   (when-not *dry-run* (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay)))))
 
 (defn stop-timer! [^JdkDelayQueueTimer timer]
-  (reset! (.running timer) false))
+  (reset! (.-running timer) false))

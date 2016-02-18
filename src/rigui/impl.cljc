@@ -105,7 +105,8 @@
         (doseq [^Task t bucket]
           (let [current (now)]
             (if (<= (- (.target t) current) (.tick parent))
-              ((.consumer parent) (.value t))
+              #?(:clj (deliver (.result-promise t) ((.consumer parent) (.value t)))
+                 :cljs ((.consumer parent) (.value t)))
               #?(:clj (dosync (schedule-task-on-wheels! parent t current))
                  :cljs (schedule-task-on-wheels! parent t current)))))))))
 

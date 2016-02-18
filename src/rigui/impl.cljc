@@ -95,7 +95,6 @@
                             (swap! (.-buckets wheel) dissoc trigger-time)
                             @b))]
       (if (= wheel-level 0)
-        ;; TODO: catch InterruptException and return unexecuted tasks
         (doseq [^Task t bucket]
           (when-not @(.-cancelled? t)
             ;; enqueue to executor takes about 0.001ms to executor

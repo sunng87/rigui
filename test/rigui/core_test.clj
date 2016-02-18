@@ -28,4 +28,8 @@
         te (schedule! tw nil 500)]
     (is (false? (realized? te)))
     (is (= :a (deref te 100 :a)))
-    (is @te)))
+    (is @te))
+  (let [tw (start 100 8 (constantly true))
+        te (schedule! tw nil 10)]
+    (is (realized? te))
+    (is (true? @te))))

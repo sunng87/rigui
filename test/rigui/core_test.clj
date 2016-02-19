@@ -33,3 +33,17 @@
         te (schedule! tw nil 10)]
     (is (realized? te))
     (is (true? @te))))
+
+(deftest test-schedule-interval
+  (testing "normal interval"
+    (let [counter (atom 0)
+          tw (start 1 8 (fn [_] (swap! counter inc)))]
+      (schedule-interval! tw :a 0 80)
+      (Thread/sleep 1000)
+      (is (= @counter 13))))
+  (testing "interval less than tick"
+    (let [tw (start 1 8 (fn [_] (is false)))]
+      (try (schedule-interval! tw :a 0 1)
+           (is false)
+           (catch Exception e
+             (is (= :rigui.impl/invalid-interval (:reason (ex-data e)))))))))

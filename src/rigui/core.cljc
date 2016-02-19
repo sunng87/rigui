@@ -31,12 +31,17 @@
                     (fn [v] (.submit executor ^Runnable (cast Runnable #(consumer-fn v)))))
              (start tick bucket-count consumer-fn)))))
 
-(defn ^:export schedule! [^TimingWheels tw task delay]
+(defn ^:export schedule! [^TimingWheels tw value delay]
   (let [delay (convert-unit delay)]
-    (impl/schedule-value! tw task delay (u/now))))
+    (impl/schedule-value! tw value delay (u/now) nil)))
 
-(defn ^:export cancel! [^TimingWheels tw ^Task task]
-  (impl/cancel! tw task (u/now)))
+(defn ^:export schedule-interval! [^TimingWheels tw value delay interval]
+  (let [delay (convert-unit delay)
+        interval (convert-unit interval)]
+    (impl/schedule-value! tw value delay (u/now) interval)))
+
+(defn ^:export cancel! [^TimingWheels tw ^Task t]
+  (impl/cancel-task! t tw (u/now)))
 
 (defn ^:export stop [^TimingWheels tw]
   (impl/stop tw))

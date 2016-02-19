@@ -47,8 +47,10 @@
 (deftest test-schedule-value
   (binding [*dry-run* true]
     (let [tw (start 1 8 identity 0)]
-      (schedule-value! tw :a 10 0)
-      (schedule-value! tw :b 100 0)
+      (schedule-value! tw :a 10 0 nil)
+      (schedule-value! tw :b 100 0 nil)
+      (schedule-value! tw :c 3 0 nil)
+      (schedule-value! tw :d 128 0 nil)
 
       (is (= :a (-> @(.wheels tw)
                     (nth 1)
@@ -72,14 +74,30 @@
                     (deref)
                     (get 64)
                     (deref)
-                    (first))))))
+                    (first)))
+      (is (= :c (-> @(.wheels tw)
+                    (nth 0)
+                    (.buckets)
+                    (deref)
+                    (get 3)
+                    (deref)
+                    (first)
+                    (.value))))
+      (is (= :d (-> @(.wheels tw)
+                    (nth 2)
+                    (.buckets)
+                    (deref)
+                    (get 128)
+                    (deref)
+                    (first)
+                    (.value)))))))
 
 
 (deftest test-cancel-task
   (binding [*dry-run* true]
     (let [tw (start 1 8 identity 0)
-          task (schedule-value! tw :a 10 0)]
-      (cancel! tw task 0)
+          task (schedule-value! tw :a 10 0 nil)]
+      (cancel! task tw 0)
       (is @(.cancelled? task))
 
       (is (empty? (-> @(.wheels tw)
@@ -92,8 +110,8 @@
 (deftest test-stop-tw
   (binding [*dry-run* true]
     (let [tw (start 1 8 identity 0)]
-      (schedule-value! tw :a 10 0)
-      (schedule-value! tw :b 100 0)
+      (schedule-value! tw :a 10 0 nil)
+      (schedule-value! tw :b 100 0 nil)
 
       (let [remains (stop tw)]
         (await (.running tw))
@@ -102,7 +120,7 @@
         (is (every? #{:a :b} remains)))
 
       (try
-        (schedule-value! tw :c 10 0)
+        (schedule-value! tw :c 10 0 nil)
         (is false)
         (catch ExceptionInfo e
           (is (= :rigui.impl/timer-stopped (:reason (ex-data e)))))))))

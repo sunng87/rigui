@@ -8,7 +8,12 @@
 (defrecord TimingWheel [buckets wheel-tick])
 (defrecord TimingWheels [wheels tick bucket-count start-at timer consumer running])
 
-(defrecord Task [value target cancelled? #?(:clj result-promise)]
+(defprotocol ITask
+  (schedule! [this timer current])
+  (execute! [this timer current])
+  (cancel! [this timer current]))
+
+(defrecord Task [value target cancelled? interval #?(:clj result-promise)]
   #?@(:clj
       [IDeref
        (deref [this] (deref result-promise))
@@ -25,7 +30,7 @@
      (.write w
              (str "#rigui.task[{"
                   ":value " (pr-str (.-value t)) ", "
-                  ":target " (.-target t) ", "
+                  ":target " @(.-target t) ", "
                   (cond
                     (realized? t) (str ":result " (pr-str @t))
                     @(.-cancelled? t) ":status cancelled"
@@ -59,32 +64,6 @@
                (timer/schedule! (.-timer parent) [parent level trigger-time]
                                 (- trigger-time current-time)))]))
 
-;; this function should be called with a dosync block
-(defn schedule-task-on-wheels! [^TimingWheels parent ^Task task current]
-  (let [level (level-for-target (.-target task) current (.-tick parent)
-                                (.-bucket-count parent))
-        current-levels (count #?(:clj (ensure (.-wheels parent))
-                                 :cljs @(.-wheels parent)))
-        _ (when (> level (dec current-levels))
-            (dorun (map #(create-wheel parent %) (range current-levels (inc level)))))
-        wheel ^TimingWheel (nth #?(:clj (ensure (.-wheels parent))
-                                   :cljs @(.-wheels parent))
-                                level)
-
-        ;; aka bucket trigger-time
-        bucket-index (bucket-index-for-target (.-target task) (.-wheel-tick wheel)
-                                              (.-start-at parent))
-
-        _ (when (nil? (get #?(:clj (ensure (.-buckets wheel))
-                              :cljs @(.-buckets wheel))
-                           bucket-index))
-            (create-bucket parent wheel level bucket-index current))
-        bucket (get #?(:clj (ensure (.-buckets wheel))
-                       :cljs @(.-buckets wheel))
-                    bucket-index)]
-    #?(:clj (alter bucket conj task)
-       :cljs (swap! bucket conj task))))
-
 (defn book-keeping [[^TimingWheels parent wheel-level trigger-time]]
   (let [wheel ^TimingWheel (nth @(.-wheels parent) wheel-level)]
     (let [bucket #?(:clj (dosync
@@ -96,18 +75,15 @@
                             @b))]
       (if (= wheel-level 0)
         (doseq [^Task t bucket]
-          (when-not @(.-cancelled? t)
-            ;; enqueue to executor takes about 0.001ms to executor
-            #?(:clj (deliver (.-result-promise t) ((.-consumer parent) (.-value t)))
-               :cljs ((.-consumer parent) (.-value t)))))
+          (let [current (now)]
+            (execute! t parent current)))
 
         (doseq [^Task t bucket]
           (let [current (now)]
-            (if (<= (- (.-target t) current) (.-tick parent))
-              #?(:clj (deliver (.-result-promise t) ((.-consumer parent) (.-value t)))
-                 :cljs ((.-consumer parent) (.-value t)))
-              #?(:clj (dosync (schedule-task-on-wheels! parent t current))
-                 :cljs (schedule-task-on-wheels! parent t current)))))))))
+            (if (<= (- @(.-target t) current) (.-tick parent))
+              (execute! t parent current)
+              #?(:clj (dosync (schedule! t parent current))
+                 :cljs (schedule! t parent current)))))))))
 
 (defn start [tick bucket-count consumer start-at]
   (TimingWheels. #?(:clj (ref []) :cljs (atom []))
@@ -115,15 +91,16 @@
                  (timer/start-timer book-keeping) consumer
                  #?(:clj (agent true) :cljs (atom true))))
 
-(defn schedule-value! [^TimingWheels tw task delay current]
+(defn schedule-value! [^TimingWheels tw task delay current interval]
   (if @(.-running tw)
-    (let [task-entity (Task. task (+ current delay) (atom false) #?(:clj (promise)))]
-      (if (<= delay (.-tick tw))
-        #?(:clj (deliver (.-result-promise task-entity)
-                         ((.-consumer tw) (.-value task-entity)))
-           :cljs ((.-consumer tw) (.-value task-entity)))
-        #?(:clj (dosync (schedule-task-on-wheels! tw task-entity current))
-           :cljs (schedule-task-on-wheels! tw task-entity current)))
+    (let [task-entity (Task. task (atom (+ current delay)) (atom false) interval
+                             #?(:clj (promise)))]
+      (if (and (some? interval) (<= interval (.-tick tw)))
+        (throw (ex-info "Interval must longer than timer tick" {:reason ::invalid-interval}))
+        (if (<= delay (.-tick tw))
+          (execute! task-entity tw current)
+          #?(:clj (dosync (schedule! task-entity tw current))
+             :cljs (schedule! task-entity tw current))))
       task-entity)
     (throw (ex-info "TimingWheels already stopped." {:reason ::timer-stopped}))))
 
@@ -135,24 +112,65 @@
                           (vals @(.-buckets ^TimingWheel w))))
           @(.-wheels tw)))
 
-(defn cancel! [^TimingWheels tw ^Task task current]
-  (when-not @(.-cancelled? task)
-    (reset! (.-cancelled? task) true)
-    (let [level (level-for-target (.-target task) current (.-tick tw) (.-bucket-count tw))]
-      (when (>= level 0)
-        (when-let [wheel ^TimingWheel (nth @(.-wheels tw) level)]
-          #?(:clj (dosync
-                   (let [bucket-index (bucket-index-for-target (.-target task) (.-wheel-tick wheel)
-                                                               (.-start-at tw))]
-                     (when-let [bucket (get (ensure (.-buckets wheel)) bucket-index)]
-                       (alter bucket disj task))))
-             :cljs (let [bucket-index (bucket-index-for-target (.-target task) (.-wheel-tick wheel)
-                                                               (.-start-at tw))]
-                     (when-let [bucket (get @(.-buckets wheel) bucket-index)]
-                       (swap! bucket disj task))))))))
-  task)
+(extend-protocol ITask
+  Task
+  (schedule! [this ^TimingWheels tw current]
+    (when-not @(.-cancelled? this)
+      (let [level (level-for-target @(.-target this) current (.-tick tw)
+                                    (.-bucket-count tw))
+            current-levels (count #?(:clj (ensure (.-wheels tw))
+                                     :cljs @(.-wheels tw)))
+            _ (when (> level (dec current-levels))
+                (dorun (map #(create-wheel tw %) (range current-levels (inc level)))))
+            wheel ^TimingWheel (nth #?(:clj (ensure (.-wheels tw))
+                                       :cljs @(.-wheels tw))
+                                    level)
+
+            ;; aka bucket trigger-time
+            bucket-index (bucket-index-for-target @(.-target this) (.-wheel-tick wheel)
+                                                  (.-start-at tw))
+
+            _ (when (nil? (get #?(:clj (ensure (.-buckets wheel))
+                                  :cljs @(.-buckets wheel))
+                               bucket-index))
+                (create-bucket tw wheel level bucket-index current))
+            bucket (get #?(:clj (ensure (.-buckets wheel))
+                           :cljs @(.-buckets wheel))
+                        bucket-index)]
+        #?(:clj (alter bucket conj this)
+           :cljs (swap! bucket conj this)))))
+
+  (cancel! [this ^TimingWheels tw current]
+    (when-not @(.-cancelled? this)
+      (reset! (.-cancelled? this) true)
+      (let [level (level-for-target @(.-target this) current (.-tick tw) (.-bucket-count tw))]
+        (when (>= level 0)
+          (when-let [wheel ^TimingWheel (nth @(.-wheels tw) level)]
+            #?(:clj (dosync
+                     (let [bucket-index (bucket-index-for-target @(.-target this) (.-wheel-tick wheel)
+                                                                 (.-start-at tw))]
+                       (when-let [bucket (get (ensure (.-buckets wheel)) bucket-index)]
+                         (alter bucket disj this))))
+               :cljs (let [bucket-index (bucket-index-for-target @(.-target this) (.-wheel-tick wheel)
+                                                                 (.-start-at tw))]
+                       (when-let [bucket (get @(.-buckets wheel) bucket-index)]
+                         (swap! bucket disj this))))))))
+    this)
+
+  (execute! [this ^TimingWheels tw current]
+    (when-not @(.-cancelled? this)
+      #?(:clj (deliver (.-result-promise this) ((.-consumer tw) (.-value this)))
+         :cljs ((.-consumer tw) (.-value this)))
+      (when (some? (.-interval this))
+        (reset! (.-target this) (+ current (.-interval this)))
+        #?(:clj (dosync (schedule! this tw current))
+           :cljs (schedule! this tw current))))))
 
 (defn pendings [^TimingWheels tw]
   (->> @(.-wheels tw)
        (mapcat #(vals (deref (.-buckets ^TimingWheel %))))
        (reduce #(+ %1 (count (filter (fn [^Task t] (not @(.-cancelled? t))) @%2))) 0)))
+
+;; a wrapper function
+(defn cancel-task! [^Task t ^TimingWheels tw current]
+  (cancel! t tw current))

@@ -1,8 +1,11 @@
 (ns rigui.async
   (:refer-clojure :exclude [delay])
   (:require [rigui.core :as rigui]
-            [clojure.core.async :refer [go chan go-loop <!! >!!]]
-            [clojure.core.async.impl.protocols :refer :all]))
+            #?@(:clj [[clojure.core.async :refer [go chan go-loop <! >!]]
+                      [clojure.core.async.impl.protocols :as p]]
+                :cljs [[cljs.core.async :refer [chan <! >!]]
+                       [cljs.core.async.impl.protocols :as p]]))
+  #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
 
 (defprotocol Delayed
   (delay [this])
@@ -14,23 +17,23 @@
   (value [this] value))
 
 (deftype DelayedChannel [tx rx timer]
-  Channel
+  p/Channel
   (close! [this]
-    (close! tx)
-    (close! rx))
+    (p/close! tx)
+    (p/close! rx))
   (closed? [this]
-    (and (closed? tx) (closed? rx)))
+    (and (p/closed? tx) (p/closed? rx)))
 
-  WritePort
+  p/WritePort
   (put! [this value fn-handler]
     (if (satisfies? Delayed value)
-      (put! tx value fn-handler)
+      (p/put! tx value fn-handler)
       (throw (ex-info "value should implement Delayed protocol"
                       {:reason ::invalid-value}))))
 
-  ReadPort
+  p/ReadPort
   (take! [this fn-handler]
-    (take! rx fn-handler)))
+    (p/take! rx fn-handler)))
 
 (defn delayed-chan
   ([] (delayed-chan nil 1 8))
@@ -38,10 +41,10 @@
   ([buf tick buckets]
    (let [tx (chan)
          rx (chan buf)
-         timer-handler (fn [v] (go (>!! rx v)))
+         timer-handler (fn [v] (go (>! rx v)))
          timer (rigui/start tick buckets timer-handler)]
      (go-loop []
-       (when-let [v (<!! tx)]
+       (when-let [v (<! tx)]
          (rigui/schedule! timer (value v) (delay v))
          (recur)))
      (DelayedChannel. tx rx timer))))

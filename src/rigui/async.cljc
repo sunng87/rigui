@@ -16,11 +16,15 @@
   (delay [this] delay)
   (value [this] value))
 
+(defn delayed-value [value delay]
+  (DelayedValue. value delay))
+
 (deftype DelayedChannel [tx rx timer]
   p/Channel
   (close! [this]
     (p/close! tx)
-    (p/close! rx))
+    (p/close! rx)
+    (rigui/stop timer))
   (closed? [this]
     (and (p/closed? tx) (p/closed? rx)))
 

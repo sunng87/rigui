@@ -5,16 +5,16 @@ Status](https://travis-ci.org/sunng87/rigui.png?branch=master)](https://travis-c
 [![Clojars](https://img.shields.io/clojars/v/rigui.svg)](https://clojars.org/rigui)
 [![GitHub license](https://img.shields.io/github/license/sunng87/rigui.svg)](https://github.com/sunng87/rigui/blob/master/LICENSE)
 
-Hierarchical Timing Wheels for Clojure and ClojureScript (coming soon).
+Hierarchical Timing Wheels for Clojure and ClojureScript.
 
 ![rigui](https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Beijing_sundial.jpg/318px-Beijing_sundial.jpg)
 
-## Usage
+## Base Usage
 
 Start a timer:
 
 ```clojure
-(require '[rigui.core :refer [start schedule! stop cancel!]])
+(require '[rigui.core :refer [start later! every! stop cancel!]])
 
 ;; starting a timer with arguments:
 ;; tick size: 1ms
@@ -55,6 +55,16 @@ Cancel a task:
 (cancel! timer task)
 ```
 
+Schedule some task/value for a fixed interval. The value will be
+delivered to handler function in fixed interval.
+
+```clojure
+(every! timer :a
+  1000 ;; initial delay
+  500 ;; interval
+  )
+```
+
 Stop the timer:
 
 ```clojure
@@ -64,9 +74,26 @@ Stop the timer:
 
 Once a timer is stopped, it no longer accepts new task.
 
+## Delayed Channel
+
+This library also provides an experimental core.async channel that pop
+the value after some delay.
+
+```clojure
+(require '[rigui.async :refer [delayed-chan delayed-value]])
+
+(def c (delayed-chan))
+
+;; the value will be available in 1000 milliseconds
+(>!! c (delayed-value :a 1000))
+
+;; blocked until 1000 milliseconds later
+(<!! c)
+```
+
 ## Under the hood
 
-TODO
+TODO:
 
 ## License
 

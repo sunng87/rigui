@@ -49,6 +49,6 @@
          timer (rigui/start tick buckets timer-handler)]
      (go-loop []
        (when-let [v (<! tx)]
-         (rigui/schedule! timer (value v) (delay v))
+         (rigui/later! timer (value v) (delay v))
          (recur)))
      (DelayedChannel. tx rx timer))))

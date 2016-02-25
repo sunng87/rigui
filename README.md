@@ -24,13 +24,13 @@ Start a timer:
 (def timer (start 1 8 some-handler) some-executor)
 ```
 
-Schedule some task/value:
+Schedule some task/value for later:
 
 ```clojure
 ;; schedule some value :a with delay 1000ms
 ;; timer's handler function will be called with :a in 1000ms
 
-(def task (schedule! timer :a 1000))
+(def task (later! timer :a 1000))
 ```
 
 Note that values to scheduled within a tick will be delivered to
@@ -42,7 +42,7 @@ the task expires. The run a custom task, you can start the timer as:
 ```clojure
 (def timer (start 1 8 (fn [f] (f)) some-executor))
 
-(schedule! timer #(println :a) 1000)
+(later! timer #(println :a) 1000)
 ```
 
 The schedule function returns a `promise`-like object, which maintains

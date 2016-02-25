@@ -11,26 +11,26 @@
         tws (start 1 8 (fn [_] (swap! task-counter dec)) executor)]
     (time
      (dotimes [_ task-count]
-       (schedule! tws nil (rand-int task-time))))
+       (later! tws nil (rand-int task-time))))
     (Thread/sleep (* 1.1 task-time))
     (is (= @task-counter 0))
     (is (= (count (stop tws)) 0))))
 
 (deftest test-cancel
   (let [tw (start 1 8 (fn [_] (is false)))
-        task (schedule! tw nil 2000)]
+        task (later! tw nil 2000)]
     (cancel! tw task)
     (is (= 0 (count (stop tw))))
     (is true)))
 
 (deftest test-task-api
   (let [tw (start 1 8 (constantly true))
-        te (schedule! tw nil 500)]
+        te (later! tw nil 500)]
     (is (false? (realized? te)))
     (is (= :a (deref te 100 :a)))
     (is @te))
   (let [tw (start 100 8 (constantly true))
-        te (schedule! tw nil 10)]
+        te (later! tw nil 10)]
     (is (realized? te))
     (is (true? @te))))
 
@@ -38,12 +38,12 @@
   (testing "normal interval"
     (let [counter (atom 0)
           tw (start 1 8 (fn [_] (swap! counter inc)))]
-      (schedule-interval! tw :a 0 80)
+      (every! tw :a 0 80)
       (Thread/sleep 1000)
       (is (= @counter 13))))
   (testing "interval less than tick"
     (let [tw (start 1 8 (fn [_] (is false)))]
-      (try (schedule-interval! tw :a 0 1)
+      (try (every! tw :a 0 1)
            (is false)
            (catch Exception e
              (is (= :rigui.impl/invalid-interval (:reason (ex-data e)))))))))

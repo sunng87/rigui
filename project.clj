@@ -16,6 +16,7 @@
                                    :target :nodejs
                                    :language-in :ecmascript5
                                    :language-out :ecmascript5}}]}
-  :aliases {"build-cljs-test" ["trampoline" "run" "-m" "clojure.main" "build.clj"]})
+  :aliases {"build-cljs-test" ["trampoline" "run" "-m" "clojure.main" "build.clj"]}
+  :deploy-repositories {"releases" :clojars})
 
 ;;

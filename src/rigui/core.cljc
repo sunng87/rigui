@@ -23,6 +23,8 @@
      :cljs (unit/to-millis u)))
 
 (defn ^:export start
+  ([tick bucket-count]
+   (impl/start (convert-unit tick) bucket-count identity (u/now)))
   ([tick bucket-count consumer-fn]
    (impl/start (convert-unit tick) bucket-count consumer-fn (u/now)))
   #?(:clj ([tick bucket-count consumer-fn ^ExecutorService executor]

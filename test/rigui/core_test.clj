@@ -24,11 +24,11 @@
     (is true)))
 
 (deftest test-task-api
-  (let [tw (start 1 8 (constantly true))
-        te (later! tw nil 500)]
+  (let [tw (start 1 8)
+        te (later! tw :some-thing 500)]
     (is (false? (realized? te)))
     (is (= :a (deref te 100 :a)))
-    (is @te))
+    (is (= :some-thing @te)))
   (let [tw (start 100 8 (constantly true))
         te (later! tw nil 10)]
     (is (realized? te))

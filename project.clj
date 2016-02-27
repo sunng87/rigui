@@ -1,4 +1,4 @@
-(defproject rigui "0.5.0-SNAPSHOT"
+(defproject rigui "0.5.0"
   :description "Timing Wheels"
   :url "https://github.com/sunng87/rigui"
   :license {:name "Eclipse Public License"

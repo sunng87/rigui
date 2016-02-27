@@ -14,7 +14,7 @@
     (time
      (dotimes [_ task-count]
        (later! tws nil (rand-int task-time))))
-    (schedule! verifier-tws nil task-time)))
+    (later! verifier-tws nil task-time)))
 
 (deftest test-cancel
   (let [tw (start 1 8 (fn [_] (is false)))

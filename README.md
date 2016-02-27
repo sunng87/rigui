@@ -91,10 +91,6 @@ the value after some delay.
 (<!! c)
 ```
 
-## Under the hood
-
-TODO:
-
 ## License
 
 Copyright © 2015-2016 Ning Sun

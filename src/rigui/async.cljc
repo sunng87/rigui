@@ -16,7 +16,9 @@
   (delay [this] delay)
   (value [this] value))
 
-(defn delayed-value [value delay]
+(defn delayed-value
+  "Wraps some value with as a DelayedValue."
+  [value delay]
   (DelayedValue. value delay))
 
 (deftype DelayedChannel [tx rx timer]
@@ -40,6 +42,9 @@
     (p/take! rx fn-handler)))
 
 (defn delayed-chan
+  "Returns a chan that accepts a DelayValue and makes it available to take after some delay.
+
+  Note that if you use a blocking buffer for this channel. It will never block input side. I might change this behavior in future releases."
   ([] (delayed-chan nil 1 8))
   ([buf] (delayed-chan buf 1 8))
   ([buf tick buckets]

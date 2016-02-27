@@ -23,6 +23,11 @@
      :cljs (unit/to-millis u)))
 
 (defn ^:export start
+  "Start a timer and return it.
+  * tick: the tick size of timing wheel
+  * bucket-count: buckets per wheel
+  * consumer-fn: the function will be called when the value emitted, and result will be delivered to task promise. Default function is `identity`
+  * executor: the executor that consumer-fn runs on (only available to JVM hosted clojure). By default consumer function will run on timer thread."
   ([tick bucket-count]
    (impl/start (convert-unit tick) bucket-count identity (u/now)))
   ([tick bucket-count consumer-fn]
@@ -33,17 +38,25 @@
                     (fn [v] (.submit executor ^Runnable (cast Runnable #(consumer-fn v)))))
              (start tick bucket-count consumer-fn)))))
 
-(defn ^:export later! [^TimingWheels tw value delay]
+(defn ^:export later!
+  "Schedule some value to be executed later, returns a promise-like object holds the result. "
+  [^TimingWheels tw value delay]
   (let [delay (convert-unit delay)]
     (impl/schedule-value! tw value delay (u/now) nil)))
 
-(defn ^:export every! [^TimingWheels tw value delay interval]
+(defn ^:export every!
+  "Schedule some value to be executed at a fixed interval."
+  [^TimingWheels tw value delay interval]
   (let [delay (convert-unit delay)
         interval (convert-unit interval)]
     (impl/schedule-value! tw value delay (u/now) interval)))
 
-(defn ^:export cancel! [^TimingWheels tw ^Task t]
+(defn ^:export cancel!
+  "Cancel a task."
+  [^TimingWheels tw ^Task t]
   (impl/cancel-task! t tw (u/now)))
 
-(defn ^:export stop [^TimingWheels tw]
+(defn ^:export stop
+  "Stop the timer."
+  [^TimingWheels tw]
   (impl/stop tw))

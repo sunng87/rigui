@@ -20,8 +20,8 @@ Start a timer:
 ;; tick size: 1ms
 ;; bucket per wheel: 8
 ;; handler function: some-handler
-;; thread pool for running tasks: some-executor
-(def timer (start 1 8 some-handler) some-executor)
+;; thread pool for running tasks: some-executor (for JVM only)
+(def timer (start 1 8 some-handler some-executor))
 ```
 
 Schedule some task/value for later:

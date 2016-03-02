@@ -91,6 +91,10 @@ the value after some delay.
 (<!! c)
 ```
 
+## Under the hood
+
+I will describe the implementation and its trade-off here, soon.
+
 ## License
 
 Copyright © 2015-2016 Ning Sun

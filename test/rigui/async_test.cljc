@@ -29,15 +29,3 @@
                        [v port] (async/alts! [t2 d-chan])]
                    (is (= port d-chan))
                    (is (= v :a))))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Entry Point
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#?(:cljs (do
-           (enable-console-print!)
-           (set! *main-cli-fn* #(t/run-tests))
-           (defmethod t/report [:cljs.test/default :end-run-tests]
-             [m]
-             (if (t/successful? m)
-               (set! (.-exitCode js/process) 0)
-               (set! (.-exitCode js/process) 1)))))

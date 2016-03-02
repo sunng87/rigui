@@ -25,7 +25,6 @@
                                    :main rigui.runner
                                    :target :nodejs
                                    :optimizations :none}}]}
-  :aliases {"build-cljs-test" ["trampoline" "run" "-m" "clojure.main" "build.clj"]}
   :deploy-repositories {"releases" :clojars})
 
 ;;

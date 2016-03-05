@@ -93,7 +93,41 @@ the value after some delay.
 
 ## Under the hood
 
-I will describe the implementation and its trade-off here, soon.
+This library is created with inspiration from
+[this blog post about Kafka's timer
+improvement](http://www.confluent.io/blog/apache-kafka-purgatory-hierarchical-timing-wheels). And
+you can find more material about variable timer implementation from
+[this
+paper](http://blog.acolyer.org/2015/11/23/hashed-and-hierarchical-timing-wheels/).
+
+Generally speaking, the timing wheels implementation trades accuracy
+for throughout. It aggregates timer tasks into a few buckets and run
+these buckets with a small number of actual timers. So timing wheels
+is specifically optimized for scenarios with a large number of timer
+tasks also to be triggered in a narrow time window.
+
+The accuracy is controlled via `tick` parameter. Tasks to be triggered
+within `[ tick * n, tick * (n+1) )` will be put into the same bucket
+and be triggered at the same time theoretically. If you want better
+accuracy, you may set `tick` to a small value such as 1ms.
+
+The second parameter `bucket-count` decides how many buckets will be
+on a single wheel. For this hierarchical wheels, it also decides the
+tick side on the nth wheel (where n > 1, n counts from 1), that is
+`tick * (bucket-count**(n-1))`. The larger `bucket-count` you set, the
+more internal timers you will have. But in most case it's still less
+than your task count significantly.
+
+Let tick = 1, bucket-count = 8, the wheels could be visualized like:
+
+![htw](https://cloud.githubusercontent.com/assets/221942/13547327/64599128-e309-11e5-8a7f-4ffbb2b8b9e9.png)
+
+*If you know good free software to draw this please kindly let me
+ know.*
+
+### Performance comparison
+
+TODO:
 
 ## License
 

@@ -96,20 +96,29 @@ the value after some delay.
 This library is created with inspiration from
 [this blog post about Kafka's timer
 improvement](http://www.confluent.io/blog/apache-kafka-purgatory-hierarchical-timing-wheels). And
-you can find more material about variable timer implementation from
+you can find more material about various timer implementation from
 [this
 paper](http://blog.acolyer.org/2015/11/23/hashed-and-hierarchical-timing-wheels/).
 
 Generally speaking, the timing wheels implementation trades accuracy
-for throughout. It aggregates timer tasks into a few buckets and run
+for throughout. It aggregates timer tasks into a few buckets and runs
 these buckets with a small number of actual timers. So timing wheels
 is specifically optimized for scenarios with a large number of timer
-tasks also to be triggered in a narrow time window.
+tasks, also to be triggered in a narrow window. For instance, tracking
+request timeout in asynchronous environment, or ping/pong timeout for
+a large number of connections.
+
+For a single task, the hierarchical timing wheels might create
+multiple timers (depends on task delay, tick size and bucket
+count). So there is minor overhead when dealing with small number of
+tasks.
 
 The accuracy is controlled via `tick` parameter. Tasks to be triggered
 within `[ tick * n, tick * (n+1) )` will be put into the same bucket
 and be triggered at the same time theoretically. If you want better
-accuracy, you may set `tick` to a small value such as 1ms.
+accuracy, you may set `tick` to a small value such as 1ms. But note
+that finer `tick` may lead to more actual timers and reduce the
+throughout.
 
 The second parameter `bucket-count` decides how many buckets will be
 on a single wheel. For this hierarchical wheels, it also decides the
@@ -121,6 +130,9 @@ than your task count significantly.
 Let tick = 1, bucket-count = 8, the wheels could be visualized like:
 
 ![htw](https://cloud.githubusercontent.com/assets/221942/13547327/64599128-e309-11e5-8a7f-4ffbb2b8b9e9.png)
+
+A task with delay 5 will be put onto the first wheel, while a delay of
+350 will be put onto the second.
 
 *If you know good free software to draw this please kindly let me
  know.*

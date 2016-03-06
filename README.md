@@ -132,7 +132,7 @@ Let tick = 1, bucket-count = 8, the wheels could be visualized like:
 ![htw](https://cloud.githubusercontent.com/assets/221942/13547327/64599128-e309-11e5-8a7f-4ffbb2b8b9e9.png)
 
 A task with delay 5 will be put onto the first wheel, while a delay of
-350 will be put onto the second.
+350 will be put onto the third.
 
 *If you know good free software to draw this please kindly let me
  know.*

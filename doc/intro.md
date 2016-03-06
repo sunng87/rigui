@@ -1,3 +1,3 @@
 # Introduction to rigui
 
-TODO: write [great documentation](http://jacobian.org/writing/what-to-write/)
+See ../README.md

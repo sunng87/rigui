@@ -5,7 +5,9 @@ Status](https://travis-ci.org/sunng87/rigui.png?branch=master)](https://travis-c
 [![Clojars](https://img.shields.io/clojars/v/rigui.svg)](https://clojars.org/rigui)
 [![GitHub license](https://img.shields.io/github/license/sunng87/rigui.svg)](https://github.com/sunng87/rigui/blob/master/LICENSE)
 
-Hierarchical Timing Wheels for Clojure and ClojureScript.
+Hierarchical Timing Wheels for Clojure and ClojureScript. This is a
+general purpose timer implementation that scales. Its performance can
+be tuned via parameters.
 
 ![rigui](https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Beijing_sundial.jpg/318px-Beijing_sundial.jpg)
 

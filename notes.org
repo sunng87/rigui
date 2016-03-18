@@ -1,0 +1,4 @@
+* NOTES
+** TODO no need to maintain TimingWheel
+We can just put or buckets into a single hashmap. The scheduler will
+find them well and recalculate delay for next level.

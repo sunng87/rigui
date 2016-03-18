@@ -22,27 +22,16 @@
   (is (= 16 (bucket-index-for-target 18 8 0)))
   (is (= 17 (bucket-index-for-target 19 8 1))))
 
-(deftest test-create-wheel
-  (let [t 1
-        bc 8
-        tw (start t bc identity (now))]
-    (dosync
-     (dorun (map #(create-wheel tw %) (range 0 10))))
-    (is (= 10 (count @(.wheels tw))))
-    (doseq [i (range 0 10)]
-      (is (= (long (* t (math/pow bc i))) (.wheel-tick (nth @(.wheels tw) i)))))))
-
 (deftest test-create-bucket
   (let [t 1
         bc 8
         tw (start t bc identity 0)]
     (dosync
-     (dorun (map #(create-wheel tw %) (range 0 10)))
      (binding [*dry-run* true]
-       (create-bucket tw (nth (ensure (.wheels tw)) 2) 2 64 0)
-       (create-bucket tw (nth (ensure (.wheels tw)) 2) 2 192 0)))
-    (is (= 2 (count @(.buckets (nth @(.wheels tw) 2)))))
-    (is (some? @(get @(.buckets (nth @(.wheels tw) 2)) 64)))))
+       (create-bucket tw 2 64 0)
+       (create-bucket tw 2 192 0)))
+    (is (= 2 (count @(.buckets tw))))
+    (is (some? @(get @(.buckets tw) 64)))))
 
 (deftest test-schedule-value
   (binding [*dry-run* true]
@@ -52,39 +41,34 @@
       (schedule-value! tw :c 3 0 nil)
       (schedule-value! tw :d 128 0 nil)
 
-      (is (= :a (-> @(.wheels tw)
-                    (nth 1)
+      (is (= :a (-> tw
                     (.buckets)
                     (deref)
                     (get 8) ;; computed trigger time
                     (deref)
                     (first)
                     (.value))))
-      (is (= :b (-> @(.wheels tw)
-                    (nth 2)
+      (is (= :b (-> tw
                     (.buckets)
                     (deref)
                     (get 64)
                     (deref)
                     (first)
                     (.value))))
-      (println (-> @(.wheels tw)
-                    (nth 2)
-                    (.buckets)
-                    (deref)
-                    (get 64)
-                    (deref)
-                    (first)))
-      (is (= :c (-> @(.wheels tw)
-                    (nth 0)
+      (println (-> tw
+                   (.buckets)
+                   (deref)
+                   (get 64)
+                   (deref)
+                   (first)))
+      (is (= :c (-> tw
                     (.buckets)
                     (deref)
                     (get 3)
                     (deref)
                     (first)
                     (.value))))
-      (is (= :d (-> @(.wheels tw)
-                    (nth 2)
+      (is (= :d (-> tw
                     (.buckets)
                     (deref)
                     (get 128)
@@ -100,8 +84,7 @@
       (cancel! task tw 0)
       (is @(.cancelled? task))
 
-      (is (empty? (-> @(.wheels tw)
-                      (nth 1)
+      (is (empty? (-> tw
                       (.buckets)
                       (deref)
                       (get 8)

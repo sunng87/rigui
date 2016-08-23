@@ -141,7 +141,46 @@ A task with delay 5 will be put onto the first wheel, while a delay of
 
 ### Performance comparison
 
-TODO:
+In the `bench/` source directory, I made a bench script to compare
+performance of Rigui and `ScheduleThreadPoolExecutor`. With the
+`(thoughput 50000)`, I try to schedule 50000 tasks that will be
+emitted within 5 seconds. This function will prints its result to stdout:
+
+```
+Testing enqueue time for JVM timer and Rigui
+Enqueue 50000 tasks into JVM timer
+"Elapsed time: 89.618297 msecs"
+
+Enqueue 50000 tasks into Rigui timer
+"Elapsed time: 591.834465 msecs"
+
+Errors
+=====
+JVM ScheduledThreadPoolExecutor error
+-----
+avg:  88.53232
+max:  181
+p99:  181
+p95:  175
+p75:  136
+p50:  90
+
+Rigui error
+-----
+avg:  18.88236
+max:  234
+p99:  185
+p95:  116
+p75:  14
+p50:  3
+```
+The results indicates:
+
+* Rigui is slower at enqueuing tasks, which might because rigui uses
+  STM internally
+* Rigui has better accuracy when tasks emitted in a short time. Rigui
+  has way smaller error for 75%-95% tasks.
+
 
 ## License
 

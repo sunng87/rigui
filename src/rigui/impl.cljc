@@ -1,7 +1,9 @@
 (ns rigui.impl
   (:require [rigui.math :as math]
             [rigui.utils :refer [now]]
-            [rigui.timer.platform :as timer])
+            [rigui.timer.protocol :as timer]
+            [rigui.timer.platform :as platform]
+            [rigui.timer.virtual :as virtual])
   #?(:clj (:import [clojure.lang IDeref IPending IBlockingDeref]
                    [java.io Writer])))
 
@@ -72,10 +74,13 @@
              :cljs (schedule! t parent current)))))))
 
 (defn start [tick bucket-count consumer start-at]
-  (TimingWheels. #?(:clj (ref {}) :cljs (atom {}))
+  (let [timer-impl (if virtual/*using-virtual-timer*
+                     (virtual/start-timer book-keeping)
+                     (platform/start-timer book-keeping))]
+    (TimingWheels. #?(:clj (ref {}) :cljs (atom {}))
                  tick bucket-count start-at
-                 (timer/start-timer book-keeping) consumer
-                 #?(:clj (agent true) :cljs (atom true))))
+                 timer-impl consumer
+                 #?(:clj (agent true) :cljs (atom true)))))
 
 (defn wheel-tick [^TimingWheels tw level]
   ;; TODO: cache this

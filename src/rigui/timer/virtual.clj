@@ -1,4 +1,5 @@
-(ns rigui.timer.virtual)
+(ns rigui.timer.virtual
+  (:require [rigui.timer.protocol :as p]))
 
 (defrecord VirtualTimer [current-time tasks handler-fn])
 
@@ -7,13 +8,14 @@
         task-set (atom (sorted-set-by :time))]
     (VirtualTimer. current-time task-set handler-fn)))
 
-(defn stop-timer! [timer]
-  ;; do nothing
-  )
+(extend-protocol p/TimerProtocol
+  VirtualTimer
 
-(defn schedule! [^VirtualTimer timer value delay]
-  (swap! (.-task-set timer) conj {:value value
-                                  :delay delay}))
+  (schedule! [this value delay]
+    (swap! (.-task-set this) conj {:value value
+                                    :delay delay}))
+
+  (stop-timer! [this]))
 
 (defn set-time! [^VirtualTimer timer time]
   (let [{tasks-to-trigger true
@@ -21,3 +23,9 @@
     (dorun (map #((.-handler-fn timer) (:value %)) tasks-to-trigger))
     (reset! (.-task-set timer) (apply sorted-set-by :time tasks-to-retain))
     (swap! (.-current-time timer) time)))
+
+(def ^:dynamic *using-virtual-timer* false)
+
+(defmacro with-virtual-timer [& body]
+  `(with-binding [*using-virtual-timer* true]
+     ~@body))

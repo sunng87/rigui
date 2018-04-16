@@ -11,7 +11,7 @@
 (extend-protocol p/TimerProtocol
   JsTimer
   (schedule! [this value delay]
-    (when (and (not *dry-run*) @(.-running timer))
+    (when (and (not *dry-run*) @(.-running this))
       (js/setTimeout #((.-handler this) value) delay)))
   (stop-timer! [this]
     (reset! (.-running this) false)))

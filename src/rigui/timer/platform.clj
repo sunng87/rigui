@@ -1,5 +1,6 @@
 (ns rigui.timer.platform
-  (:require [rigui.utils :refer [now]])
+  (:require [rigui.utils :refer [now]]
+            [rigui.timer.protocol :as p])
   (:import [java.util.concurrent Delayed DelayQueue ExecutorService Executors TimeUnit]))
 
 (def ^:dynamic *dry-run* false)
@@ -35,8 +36,10 @@
                         (.start))]
     (JdkDelayQueueTimer. running queue master-thread)))
 
-(defn schedule! [^JdkDelayQueueTimer timer value delay]
-  (when-not *dry-run* (.offer ^DelayQueue (.queue timer) (JdkDelayedTask. value (+ (now) delay)))))
+(extend-protocol p/TimerProtocol
+  JdkDelayQueueTimer
 
-(defn stop-timer! [^JdkDelayQueueTimer timer]
-  (reset! (.-running timer) false))
+  (schedule! [this value delay]
+    (when-not *dry-run* (.offer ^DelayQueue (.queue this) (JdkDelayedTask. value (+ (now) delay)))))
+  (stop-timer! [this]
+    (reset! (.-running this) false)))

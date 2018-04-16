@@ -1,4 +1,5 @@
-(ns rigui.timer.platform)
+(ns rigui.timer.platform
+  (:require [rigui.timer.protocol :as p]))
 
 (def ^:dynamic *dry-run* false)
 
@@ -7,9 +8,10 @@
 (defn start-timer [handler-fn]
   (JsTimer. (atom true) handler-fn))
 
-(defn schedule! [timer value delay]
-  (when (and (not *dry-run*) @(.-running timer))
-    (js/setTimeout #((.-handler timer) value) delay)))
-
-(defn stop-timer! [timer]
-  (reset! (.-running timer) false))
+(extend-protocol p/TimerProtocol
+  JsTimer
+  (schedule! [this value delay]
+    (when (and (not *dry-run*) @(.-running this))
+      (js/setTimeout #((.-handler this) value) delay)))
+  (stop-timer! [this]
+    (reset! (.-running this) false)))

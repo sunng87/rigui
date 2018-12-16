@@ -4,10 +4,10 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0" :scope "provided"]
-                 [org.clojure/clojurescript "1.10.238" :scope "provided"]
-                 [org.clojure/core.async "0.4.474" :scope "provided"]]
+                 [org.clojure/clojurescript "1.10.439" :scope "provided"]
+                 [org.clojure/core.async "0.4.490" :scope "provided"]]
   :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-doo "0.1.10"]]
+            [lein-doo "0.1.11"]]
   :cljsbuild {:builds [{:id "core"
                         :source-paths ["src"]
                         :compiler {:optimizations :advanced

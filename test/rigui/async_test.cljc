@@ -17,7 +17,7 @@
                  (let [t (async/timeout 100)
                        [_ port] (async/alts! [t d-chan])]
                    (is (= port t)))
-                 (let [t2 (async/timeout 210)
+                 (let [t2 (async/timeout 310)
                        [v port] (async/alts! [t2 d-chan])]
                    (is (= port d-chan))
                    (is (= v :a)))))

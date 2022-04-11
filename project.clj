@@ -3,9 +3,9 @@
   :url "https://github.com/sunng87/rigui"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.1" :scope "provided"]
-                 [org.clojure/clojurescript "1.10.741" :scope "provided"]
-                 [org.clojure/core.async "1.1.587" :scope "provided"]]
+  :dependencies [[org.clojure/clojure "1.11.1" :scope "provided"]
+                 [org.clojure/clojurescript "1.11.4" :scope "provided"]
+                 [org.clojure/core.async "1.5.648" :scope "provided"]]
   :plugins [[lein-cljsbuild "1.1.8"]
             [lein-doo "0.1.11"]]
   :cljsbuild {:builds [{:id "core"

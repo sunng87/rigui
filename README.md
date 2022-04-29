@@ -1,7 +1,6 @@
 # Ri Gui （日晷, Sundial）
 
-[![Build
-Status](https://travis-ci.org/sunng87/rigui.png?branch=master)](https://travis-ci.org/sunng87/rigui)
+[![CI](https://github.com/sunng87/rigui/actions/workflows/clojure.yml/badge.svg)](https://github.com/sunng87/rigui/actions/workflows/clojure.yml)
 [![Clojars](https://img.shields.io/clojars/v/rigui.svg)](https://clojars.org/rigui)
 [![GitHub license](https://img.shields.io/github/license/sunng87/rigui.svg)](https://github.com/sunng87/rigui/blob/master/LICENSE)
 

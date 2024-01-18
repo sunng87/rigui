@@ -27,14 +27,14 @@
 #?(:clj
    (defmethod print-method Task [^Task t ^Writer w]
      (.write w
-             (str "#rigui.task[{"
+             (str "#rigui.task{"
                   ":value " (pr-str (.-value t)) ", "
                   ":target " @(.-target t) ", "
                   (cond
                     (realized? t) (str ":result " (pr-str @t))
                     @(.-cancelled? t) ":status cancelled"
                     :else ":status pending")
-                  "]}"))))
+                  "}"))))
 
 (defn level-for-target [target current tick bucket-len]
   (let [delay (- target current)]
